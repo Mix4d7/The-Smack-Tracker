@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Smack Tracker v1.06</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* ── light mode (default) ── */
+  :root {
+    --bg:      #f4f3ee;
+    --bg2:     #ffffff;
+    --bg3:     #eeede8;
+    --bg4:     #e4e3dc;
+    --border:  #d8d6ce;
+    --border2: #c8c6be;
+    --text:    #1a1a18;
+    --text2:   #5a5a52;
+    --text3:   #9a9a90;
+    --accent:  #3a7d1e;
+    --accent2: #2d6018;
+    --accentbg:#e8f5e0;
+    --red:     #c0392b;
+    --amber:   #c47a0a;
+    --blue:    #1a6fa8;
+    --green:   #1a7a3a;
+    --font: 'Courier New', Courier, monospace;
+    --radius: 6px;
+    --chart-line: #1a6fa8;
+    --chart-fill: rgba(26,111,168,0.08);
+    --chart-grid: #e8e6de;
+    --chart-tick: #9a9a90;
+    --chart-bar:  rgba(58,125,30,0.18);
+    --chart-bar-border: #3a7d1e;
+  }
+  /* ── dark mode ── */
+  html.dark {
+    --bg:      #0a0a0a;
+    --bg2:     #111111;
+    --bg3:     #1a1a1a;
+    --bg4:     #222222;
+    --border:  #2a2a2a;
+    --border2: #333333;
+    --text:    #e8e8e0;
+    --text2:   #888880;
+    --text3:   #555550;
+    --accent:  #c8f060;
+    --accent2: #8ab830;
+    --accentbg:#1a2a08;
+    --red:     #ff4444;
+    --amber:   #f0a030;
+    --blue:    #4ab0e8;
+    --green:   #60d080;
+    --chart-line: #4ab0e8;
+    --chart-fill: rgba(74,176,232,0.07);
+    --chart-grid: #1e1e1e;
+    --chart-tick: #555550;
+    --chart-bar:  rgba(200,240,96,0.15);
+    --chart-bar-border: #c8f060;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; transition: background .2s, color .2s; }
+
+  .shell { max-width: 860px; margin: 0 auto; padding: 0 16px 60px; }
+
+  /* ── header ── */
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 20px 0 18px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .hdr-left {}
+  .hdr-title { font-size: 22px; font-weight: 700; letter-spacing: .12em; color: var(--accent); }
+  .hdr-sub { font-size: 10px; color: var(--text3); letter-spacing: .18em; text-transform: uppercase; margin-top: 3px; }
+  .hdr-right { display: flex; align-items: center; gap: 14px; }
+  .hdr-time { font-size: 11px; color: var(--text2); letter-spacing: .04em; text-align: right; line-height: 1.5; }
+  .theme-toggle { background: var(--bg3); border: 1px solid var(--border2); border-radius: 20px; width: 52px; height: 28px; cursor: pointer; position: relative; flex-shrink: 0; transition: background .2s; }
+  .theme-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); transition: transform .2s, background .2s; }
+  html.dark .theme-toggle::after { transform: translateX(24px); }
+  .theme-label { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ── nav ── */
+  .nav { display: flex; gap: 2px; margin-bottom: 20px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px; }
+  .nav-btn { flex: 1; font-family: var(--font); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; padding: 8px 4px; border: none; background: transparent; color: var(--text2); border-radius: 4px; cursor: pointer; transition: all .12s; }
+  .nav-btn:hover { color: var(--text); background: var(--bg4); }
+  .nav-btn.active { background: var(--bg2); color: var(--accent); border: 1px solid var(--border2); font-weight: 700; }
+
+  /* ── panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── cards ── */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-label { font-size: 10px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; }
+
+  /* ── metrics ── */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .metric { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+  .metric-label { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+  .metric-val { font-size: 20px; font-weight: 700; color: var(--text); }
+  .metric-val.over { color: var(--red); }
+  .metric-val.under { color: var(--blue); }
+  .metric-val.ok { color: var(--accent); }
+
+  /* ── sliders ── */
+  .ctrl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .ctrl-label { font-size: 11px; color: var(--text2); width: 130px; flex-shrink: 0; letter-spacing: .04em; }
+  .ctrl-val { font-size: 12px; font-weight: 700; color: var(--accent); width: 100px; text-align: right; flex-shrink: 0; }
+  input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; background: var(--bg4); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+
+  /* ── legend ── */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 11px; color: var(--text2); }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+
+  /* ── range pill bar ── */
+  .range-bar { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 12px; }
+  .range-pill { font-family: var(--font); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: all .1s; white-space: nowrap; }
+  .range-pill:hover { border-color: var(--accent); color: var(--accent); }
+  .range-pill.active { background: var(--accentbg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  /* ── history ── */
+  .hist-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .hist-search { flex: 1; min-width: 160px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; }
+  .hist-search:focus { border-color: var(--accent); }
+  .hist-search::placeholder { color: var(--text3); }
+  select { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; cursor: pointer; }
+  select:focus { border-color: var(--accent); }
+  .log-entry-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 12px; }
+  .log-entry-form input { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; }
+  .log-entry-form input:focus { border-color: var(--accent); }
+  .log-entry-form input::placeholder { color: var(--text3); }
+  .hist-table-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { position: sticky; top: 0; background: var(--bg3); padding: 8px 10px; text-align: left; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); border-bottom: 1px solid var(--border2); font-weight: 500; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
+  tbody tr:hover { background: var(--bg3); }
+  tbody td { padding: 7px 10px; color: var(--text2); }
+  tbody td.dose-cell { color: var(--accent); font-weight: 700; }
+  tbody td.time-cell { color: var(--text); font-size: 11px; }
+  .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 4px; font-family: var(--font); }
+  .del-btn:hover { color: var(--red); }
+
+  /* ── import ── */
+  .drop-zone { border: 1px dashed var(--border2); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; position: relative; background: var(--bg2); transition: all .12s; }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: var(--bg3); }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .dz-icon { font-size: 28px; color: var(--text3); margin-bottom: 8px; }
+  .dz-label { font-size: 13px; color: var(--text2); }
+  .dz-sub { font-size: 11px; color: var(--text3); margin-top: 4px; letter-spacing: .06em; }
+  .preview-img { width: 100%; max-height: 220px; object-fit: contain; border-radius: var(--radius); border: 1px solid var(--border); margin: 10px 0; display: none; }
+  .status-bar { font-size: 12px; padding: 8px 12px; border-radius: var(--radius); margin: 8px 0; display: none; border: 1px solid; }
+  .status-bar.loading { background: var(--bg3); color: var(--blue); border-color: var(--border2); }
+  .status-bar.error { background: var(--bg3); color: var(--red); border-color: var(--border2); }
+  .status-bar.ok { background: var(--accentbg); color: var(--green); border-color: var(--border); }
+  .row-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 700; letter-spacing: .05em; }
+  .badge-new { background: var(--accentbg); color: var(--green); border: 1px solid var(--border); }
+  .badge-dup { background: var(--bg3); color: var(--amber); border: 1px solid var(--border2); }
+  .badge-err { background: var(--bg3); color: var(--red); border: 1px solid var(--border2); }
+  .edit-cell { background: transparent; border: none; font-family: var(--font); font-size: 12px; color: var(--text); width: 100%; padding: 0; }
+  .edit-cell:focus { outline: 1px solid var(--accent); border-radius: 2px; padding: 1px 3px; background: var(--bg3); }
+
+  /* ── support ── */
+  .support-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+  .support-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 6px; letter-spacing: .06em; }
+  .support-desc { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 18px; }
+  .pay-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .pay-row:last-of-type { border-bottom: none; padding-bottom: 0; }
+  .pay-method { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .1em; padding-top: 2px; flex-shrink: 0; width: 70px; }
+  .pay-detail { font-size: 12px; color: var(--text); flex: 1; }
+  .pay-link { color: var(--blue); text-decoration: none; }
+  .pay-link:hover { text-decoration: underline; color: var(--accent); }
+  .btc-addr { font-size: 11px; color: var(--text2); word-break: break-all; line-height: 1.5; }
+  .honor-note { font-size: 11px; color: var(--text3); line-height: 1.7; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  /* ── buttons ── */
+  .btn { font-family: var(--font); font-size: 12px; letter-spacing: .06em; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; transition: all .1s; text-transform: uppercase; }
+  .btn-primary { background: var(--accent); color: #fff; border: none; font-weight: 700; }
+  html:not(.dark) .btn-primary { color: #fff; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+  .btn-small { font-size: 10px; padding: 3px 8px; letter-spacing: .05em; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+
+  /* ── symptom score buttons ── */
+  .score-btn { font-family: var(--font); font-size: 11px; width: 26px; height: 26px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all .1s; display: flex; align-items: center; justify-content: center; }
+  .score-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .score-btn.active { font-weight: 700; color: #fff; border-color: transparent; }
+
+  /* ── symptom dot on chart ── */
+  .symp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  /* ── clinician modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-box { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 24px; max-width: 520px; width: 100%; font-family: var(--font); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 10px; letter-spacing: .06em; }
+  .modal-body { font-size: 12px; color: var(--text2); line-height: 1.8; margin-bottom: 16px; }
+  .modal-body p { margin-bottom: 10px; }
+  .modal-check { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); margin-bottom: 16px; cursor: pointer; }
+  .modal-check input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+
+  /* ── clinician panel ── */
+  .instance-box { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); padding: 14px 16px; margin: 12px 0; text-align: center; }
+  .instance-id { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: .12em; margin: 6px 0; word-break: break-all; }
+  .instance-sub { font-size: 11px; color: var(--text3); line-height: 1.6; }
+
+  /* ── chart containers ── */
+  .chart-wrap { position: relative; width: 100%; height: 280px; margin-top: 4px; }
+  .pk-wrap { position: relative; width: 100%; height: 240px; min-height: 240px; margin-top: 4px; }
+  #pkChart { display: block; width: 100% !important; height: 240px !important; }
+
+  /* ── scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── cut guide ── */
+  .film-diagram-wrap { margin-bottom: 28px; }
+  .film-diagram-title { font-size: 11px; color: var(--text2); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+  .film-svg-container { display: inline-block; }
+
+  /* ── language selector ── */
+  .lang-wrap { position: relative; display: flex; align-items: center; gap: 6px; }
+  .lang-btn { font-family: var(--font); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 5px 10px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all .1s; white-space: nowrap; }
+  .lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .lang-btn.active { background: var(--accentbg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .lang-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1200; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 6px; max-height: 60vh; overflow-y: auto; width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); display: none; }
+  .lang-menu.open { display: block; }
+  .lang-opt { display: block; width: 100%; text-align: left; font-family: var(--font); font-size: 12px; padding: 7px 10px; border: none; background: transparent; color: var(--text); cursor: pointer; border-radius: 4px; }
+  .lang-opt:hover { background: var(--bg3); color: var(--accent); }
+  .lang-opt.active { background: var(--accentbg); color: var(--accent); font-weight: 700; }
+  .lang-opt small { color: var(--text3); font-size: 10px; }
+  html[dir="rtl"] .lang-menu { right: auto; left: 0; }
+  html[dir="rtl"] .lang-opt { text-align: right; }
+
+  /* ── dashboard now-status block ── */
+  .now-block { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+  .now-cell .now-cap { font-size: 10px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 5px; }
+  .now-cell .now-big { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+  .now-cell .now-sub { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+  .now-cell .now-mid { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
+
+  /* ── simulator unit toggle + interval controls ── */
+  .unit-toggle { display: inline-flex; border: 1px solid var(--border2); border-radius: 20px; overflow: hidden; }
+  .unit-toggle button { font-family: var(--font); font-size: 11px; letter-spacing: .06em; padding: 5px 14px; border: none; background: var(--bg3); color: var(--text2); cursor: pointer; transition: all .1s; }
+  .unit-toggle button.active { background: var(--accent); color: #fff; font-weight: 700; }
+  html.dark .unit-toggle button.active { color: #0a0a0a; }
+  .interval-manual { display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; flex-wrap: wrap; }
+  .interval-manual input { width: 56px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 5px 8px; color: var(--text); font-family: var(--font); font-size: 12px; outline: none; text-align: center; }
+  .interval-manual input:focus { border-color: var(--accent); }
+  .interval-manual span { font-size: 11px; color: var(--text3); }
+  .preset-bar { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-pill { font-family: var(--font); font-size: 11px; letter-spacing: .05em; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: all .1s; }
+  .preset-pill:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-pill.active { background: var(--accentbg); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  /* ── clinician monthly averages ── */
+  .avg-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+  .avg-table th { text-align: left; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); padding: 6px 10px; border-bottom: 1px solid var(--border2); font-weight: 500; }
+  .avg-table td { padding: 6px 10px; color: var(--text2); border-bottom: 1px solid var(--border); }
+  .avg-table td.avg-month { color: var(--text); }
+  .avg-table td.avg-val { color: var(--accent); font-weight: 700; text-align: right; }
+  .avg-table td.avg-n { text-align: right; color: var(--text3); font-size: 11px; }
+
+  /* ── print ── */
+  #printOnly { display: none; }  /* hidden on screen */
+  @media print {
+    body > * { display: none !important; }
+    #printOnly { display: block !important; }
+    #printOnly h2  { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 3px; color: #111; font-family: 'Courier New', monospace; }
+    #printOnly p   { font-size: 9px;  color: #444; margin: 0 0 4px; font-family: 'Courier New', monospace; line-height: 1.6; }
+    #printOnly .pw { color: #8a4400; }
+    @page { margin: 10mm; size: portrait; }
+  }</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-title">THE SMACK TRACKER</div>
+      <div class="hdr-sub"><span data-i18n="app_sub">buprenorphine dose &amp; planner</span> &nbsp;·&nbsp; v1.06</div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-time" id="clockDisplay"></div>
+      <div class="lang-wrap">
+        <button class="lang-btn" id="langEnBtn" onclick="setLang('en')">English</button>
+        <button class="lang-btn" id="langOtherBtn" onclick="toggleLangMenu()" data-i18n="lang_label">LANGUAGE</button>
+        <div class="lang-menu" id="langMenu"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="toggle light/dark"></button>
+        <span class="theme-label" id="themeLabel">light</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="showPanel('history',this)" data-i18n="nav_dashboard">dashboard</button>
+    <button class="nav-btn" onclick="showPanel('simulator',this)" data-i18n="nav_simulator">simulator</button>
+    <button class="nav-btn" onclick="showPanel('cutter',this)" data-i18n="nav_cutguide">cut guide</button>
+    <button class="nav-btn" onclick="showPanel('import',this)" data-i18n="nav_photo">photo import</button>
+    <button class="nav-btn" onclick="showPanel('support',this)" data-i18n="nav_license">purchase license</button>
+    <button class="nav-btn" id="clinicianNavBtn" onclick="openClinician()" data-i18n="nav_clinician">clinician</button>
+  </div>
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <div id="panel-history" class="panel active">
+
+    <div class="now-block" id="nowBlock">
+      <div class="now-cell">
+        <div class="now-cap" data-i18n="now_blood_level">present blood level</div>
+        <div class="now-big" id="nowLevel">—</div>
+        <div class="now-sub" id="nowLevelSub">&nbsp;</div>
+      </div>
+      <div class="now-cell">
+        <div class="now-cap" data-i18n="now_last_dose">last dose</div>
+        <div class="now-mid" id="nowLastDose">—</div>
+        <div class="now-sub" id="nowLastDoseTime">&nbsp;</div>
+      </div>
+      <div class="now-cell">
+        <div class="now-cap" data-i18n="now_datetime">date &amp; time now</div>
+        <div class="now-mid" id="nowDate">—</div>
+        <div class="now-sub" id="nowTime">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label" data-i18n="log_a_dose">log a dose</div>
+      <div class="log-entry-form">
+        <input type="datetime-local" id="logTime">
+        <input type="number" id="logDose" placeholder="dose (mcg)" min="1" max="9999" step="1">
+        <input type="text" id="logNotes" placeholder="notes (optional)">
+        <button class="btn btn-primary" onclick="logDose()">+ log</button>
+      </div>
+      <div style="margin-top:4px">
+        <button class="btn btn-ghost btn-small" id="sympToggleBtn" onclick="toggleSympPanel()" style="font-size:10px;letter-spacing:.06em">+ add cravings / effect</button>
+      </div>
+      <div id="sympPanel" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">cravings <span id="cravVal" style="color:var(--accent);font-weight:700;font-size:13px">5</span></div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:6px">1 = none &nbsp;·&nbsp; 10 = severe</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap" id="cravBtns"></div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">dose effect <span id="effectVal" style="color:var(--accent);font-weight:700;font-size:13px">5</span></div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:6px">1 = too little &nbsp;·&nbsp; 10 = too much</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap" id="effectBtns"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="card-label" style="margin-bottom:0">blood level — peaks &amp; troughs</div>
+      </div>
+
+      <div class="ctrl-row" style="margin-bottom:10px">
+        <span class="ctrl-label">half-life (hours)</span>
+        <input type="range" id="pkHalfLife" min="24" max="42" step="0.5" value="37" oninput="onPkParamChange()">
+        <span class="ctrl-val" id="pkHalfLife-out">37.0 hr</span>
+      </div>
+      <div class="ctrl-row" style="margin-bottom:12px">
+        <span class="ctrl-label">time to peak (hours)</span>
+        <input type="range" id="pkTpeak" min="0" max="4" step="0.1" value="1.5" oninput="onPkParamChange()">
+        <span class="ctrl-val" id="pkTpeak-out">1.5 hr</span>
+      </div>
+
+      <div class="range-bar" id="pkRangeBar"></div>
+      <div class="pk-wrap">
+        <canvas id="pkChart" role="img" aria-label="Simulated buprenorphine blood level peaks and troughs over time">Simulated blood level peaks and troughs.</canvas>
+      </div>
+      <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:5px;letter-spacing:.04em" id="pkFooter">estimated blood level (mcg-accumulated) — oral 1-cpt model, t½=37hr, Tmax=1.5hr</div>
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
+      <div style="margin-bottom:2px"><span style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.08em">privacy</span> &nbsp;Your data is stored locally on your device and is not transmitted to a server.</div>
+      <div style="margin-bottom:2px"><span style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.08em">data</span> &nbsp;Clearing browser data, changing browsers, or changing devices may erase your records unless you create a backup.</div>
+      <div><span style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.08em">disclaimer</span> &nbsp;This tool is for informational and self-tracking purposes only and is not medical advice.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label" data-i18n="dose_history">dose history</div>
+      <div class="hist-controls">
+        <input class="hist-search" type="text" id="histSearch" placeholder="search notes..." oninput="renderHistory()">
+        <select id="histDays" onchange="renderHistory()">
+          <option value="7">last 7 days</option>
+          <option value="14">last 14 days</option>
+          <option value="30">last 30 days</option>
+          <option value="0" selected>all time</option>
+        </select>
+        <button class="btn btn-ghost btn-small" onclick="exportData()">export json</button>
+        <button class="btn btn-ghost btn-small" onclick="importJSON()">import json</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImportFile(event)">
+      </div>
+      <div class="hist-table-wrap">
+        <table>
+          <thead><tr>
+            <th>date / time</th><th>dose</th><th>crav</th><th>effect</th><th>notes</th><th></th>
+          </tr></thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px" id="histCount"></div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ SIMULATOR ═══════════════ -->
+  <div id="panel-simulator" class="panel">
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="card-label" style="margin-bottom:0" data-i18n="sim_new_schedule">new schedule</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase" data-i18n="sim_units">units</span>
+          <div class="unit-toggle" id="unitToggle">
+            <button id="unitMcg" class="active" onclick="setSimUnit('mcg')">mcg</button>
+            <button id="unitMg" onclick="setSimUnit('mg')">mg</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label"><span data-i18n="sim_dose">dose</span> (<span class="unit-lbl">mcg</span>)</span>
+        <input type="range" id="dose" min="75" max="24000" step="25" value="750" oninput="redrawSim()">
+        <span class="ctrl-val" id="dose-out">750 mcg</span>
+      </div>
+
+      <div class="ctrl-row" style="margin-bottom:4px">
+        <span class="ctrl-label" data-i18n="sim_interval">interval</span>
+        <input type="range" id="interval" min="4" max="48" step="0.25" value="24" oninput="onIntervalSlider()">
+        <span class="ctrl-val" id="interval-out">24h 0m</span>
+      </div>
+      <div class="interval-manual">
+        <span data-i18n="sim_set_exact">set exact:</span>
+        <input type="number" id="intervalH" min="0" max="48" step="1" value="24" oninput="onIntervalManual()">
+        <span>h</span>
+        <input type="number" id="intervalM" min="0" max="59" step="1" value="0" oninput="onIntervalManual()">
+        <span>m</span>
+      </div>
+      <div class="preset-bar" id="presetBar">
+        <button class="preset-pill" data-tau="48" onclick="setPreset(48,this)" title="every other day">QOD · 48h</button>
+        <button class="preset-pill" data-tau="24" onclick="setPreset(24,this)" title="once daily">QD · 24h</button>
+        <button class="preset-pill" data-tau="12" onclick="setPreset(12,this)" title="twice daily">BID · 12h</button>
+        <button class="preset-pill" data-tau="8" onclick="setPreset(8,this)" title="three times daily">TID · 8h</button>
+        <button class="preset-pill" data-tau="6" onclick="setPreset(6,this)" title="four times daily">QID · 6h</button>
+      </div>
+
+      <div class="ctrl-row" style="margin-bottom:0;margin-top:14px">
+        <span class="ctrl-label"><span data-i18n="sim_ceiling">ceiling</span> (<span class="unit-lbl">mcg</span>)</span>
+        <input type="range" id="ceiling" min="75" max="30000" step="25" value="2700" oninput="redrawSim()">
+        <span class="ctrl-val" id="ceiling-out">2,700 mcg</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label" data-i18n="sim_prior_ss">prior steady state</div>
+      <div class="ctrl-row" style="margin-bottom:0">
+        <span class="ctrl-label"><span data-i18n="sim_starting_peak">starting peak</span> (<span class="unit-lbl">mcg</span>)</span>
+        <input type="range" id="startPeak" min="75" max="30000" step="25" value="2700" oninput="redrawSim()">
+        <span class="ctrl-val" id="startPeak-out">2,700 mcg</span>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-label" data-i18n="ss_peak">ss peak</div><div class="metric-val" id="ss-peak">—</div></div>
+      <div class="metric"><div class="metric-label" data-i18n="ss_trough">ss trough</div><div class="metric-val" id="ss-trough">—</div></div>
+      <div class="metric"><div class="metric-label" data-i18n="days_to_ss">days to ss</div><div class="metric-val" id="ss-days">—</div></div>
+      <div class="metric"><div class="metric-label" data-i18n="vs_ceiling">vs ceiling</div><div class="metric-val" id="vs-ceiling">—</div></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div style="width:12px;height:3px;background:var(--chart-line);border-radius:2px"></div><span>blood level</span></div>
+      <div class="legend-item"><div style="width:18px;height:2px;background:var(--red)"></div><span>ceiling</span></div>
+      <div class="legend-item"><div style="width:18px;height:0;border-top:2px dashed var(--text3)"></div><span>prior peak</span></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="simChart" role="img" aria-label="Buprenorphine blood level simulation over 10 days">Blood level projection.</canvas>
+    </div>
+    <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:6px;letter-spacing:.06em">days from first dose on new schedule</div>
+
+    <div style="margin-top:18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;font-size:12px;color:var(--text2);line-height:1.85">
+      <div style="font-size:10px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px">how to use this simulator</div>
+
+      <p style="margin-bottom:10px"><span style="color:var(--text);font-weight:700">Dose</span> is the amount you take each time. <span style="color:var(--text);font-weight:700">Interval</span> is how many hours between doses. Together they determine how much buprenorphine accumulates in your system and where it stabilizes — the <em>steady state</em> the chart converges to after roughly 5 half-lives (~8 days at default settings).</p>
+
+      <p style="margin-bottom:10px"><span style="color:var(--text);font-weight:700">Ceiling</span> is the upper limit you're trying to stay below — set it to your current stable peak if you're tapering, or to a clinical threshold if you have one. <span style="color:var(--text);font-weight:700">Prior steady state</span> is where you're coming from. The chart shows what happens to your blood level when you switch from the old schedule to the new one.</p>
+
+      <p style="margin-bottom:10px"><span style="color:var(--text);font-weight:700">To plan a reduction:</span> lower the dose or lengthen the interval, watch the SS Peak metric, and check that the new peak falls where you want it. Small reductions in dose have a roughly linear effect on SS level. Lengthening the interval has a larger effect at short intervals and flattens out as intervals approach the half-life.</p>
+
+      <p style="margin-bottom:10px"><span style="color:var(--text);font-weight:700">Note on peaks and troughs:</span> buprenorphine's half-life is long (~37hr), so the level stays high between doses. At 24hr dosing with a 37hr half-life the trough sits around 64% of the peak (it equals peak × e<sup>−ke·τ</sup>); as you shorten the interval, peak and trough converge. The steady-state peak follows the standard accumulation ratio, 1 ÷ (1 − e<sup>−ke·τ</sup>) × dose — so 750 mcg once daily settles at about 2,070 mcg. This is why splitting a dose feels smoother than one large dose even at the same daily total.</p>
+
+      <p style="margin-bottom:0;padding-top:12px;border-top:1px solid var(--border);color:var(--text3);font-size:11px">This graph is a pharmacokinetic estimate based on a one-compartment oral model with population-average parameters. Individual response varies. What actually matters is whether your dose silences cravings and keeps withdrawal at bay — that's between you and your clinician, and no model replaces that feedback loop.</p>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ CUT GUIDE ═══════════════ -->
+  <div id="panel-cutter" class="panel">
+
+    <div class="card">
+      <div class="card-label">film cutting guide — actual size</div>
+
+      <div style="font-size:12px;color:var(--blue);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px;margin-bottom:14px;line-height:1.7">
+        <strong style="color:var(--text)">Print from a desktop or laptop browser.</strong> Mobile browsers do not support the precision printing this guide requires. Open this file in Chrome or Firefox on a computer, then use the print button below. Do not scale, shrink-to-fit, or fit-to-page — print at exactly 100%.
+      </div>
+
+      <div style="font-size:11px;color:var(--amber);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;margin-bottom:16px;line-height:1.7">
+        <strong>Note:</strong> The 2mg and 8mg films are physically identical in size (22×12.8mm). They differ only in drug concentration — the 8mg film contains 3.2× more buprenorphine per square millimeter. A 1/8 cut of a 2mg film = 250mcg. A 1/8 cut of an 8mg film = 1000mcg. Always verify the imprint before cutting.
+      </div>
+
+      <div style="font-size:12px;color:var(--text2);line-height:1.9;margin-bottom:18px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">how to cut accurately</div>
+
+        <p style="margin:0 0 9px">Select the film strength below, hit <strong style="color:var(--text)">print</strong>, and print at exactly 100% scale — no fit-to-page, no shrink-to-fit. The printed guide will be the exact physical size of the film. Verify with a ruler: the strip should measure exactly 22mm wide before you touch it with a blade.</p>
+
+        <p style="margin:0 0 9px"><strong style="color:var(--text)">Use a sharp hobby knife with a fresh blade.</strong> A dull blade drags and tears the film instead of cutting it. One new blade costs less than a wasted strip. X-Acto #11 or a snap-off utility blade both work. Replace the blade if you feel any resistance.</p>
+
+        <p style="margin:0 0 9px"><strong style="color:var(--text)">Cut on glass.</strong> A smooth glass surface — a picture frame insert, a glass cutting board — gives you a flat, hard backing with no give. Cutting on cardboard or a soft mat lets the blade wander. The film won't slip on glass, which matters at this scale.</p>
+
+        <p style="margin:0 0 9px"><strong style="color:var(--text)">Put your eyes where the blade needs to go, not where it is.</strong> Look ahead of the cut along your guide line. Your hand follows your eyes. Looking at the blade itself is what produces drift.</p>
+
+        <p style="margin:0 0 9px"><strong style="color:var(--text)">Several light quick strokes, not one heavy push.</strong> Score the film with two or three passes of minimal pressure before committing to a full cut. Light passes stay on line. A single heavy stroke wants to skate off it. Once you feel the blade reach the glass, one clean final pass finishes it.</p>
+
+        <p style="margin:0">Place the printed guide under the film if the film is translucent enough, or lay it alongside as a measuring reference and use a metal straight edge — never a plastic ruler — aligned to the grid lines. The drug is uniformly distributed throughout the film matrix, so a geometrically accurate cut is a dosimetrically accurate cut.</p>
+      </div>
+
+      <!-- film selector -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px" id="filmSelector">
+        <button class="range-pill active" onclick="selectFilm('2mg',this)">2mg film</button>
+        <button class="range-pill" onclick="selectFilm('4mg',this)">4mg film</button>
+        <button class="range-pill" onclick="selectFilm('8mg',this)">8mg film</button>
+        <button class="range-pill" onclick="selectFilm('12mg',this)">12mg film</button>
+      </div>
+
+      <!-- film info line -->
+      <div id="filmInfoLine" style="font-size:11px;color:var(--text3);margin-bottom:14px;letter-spacing:.04em"></div>
+
+      <!-- print area -->
+      <div id="cutPrintArea">
+        <!-- film diagrams rendered here by JS -->
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-small" onclick="printCutGuide()">print</button>
+        <span style="font-size:10px;color:var(--text3)">print at 100% · no scaling · portrait</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
+      <div style="margin-bottom:4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">on film vs tablet</div>
+      Films are the better choice for precision tapering. The drug is distributed uniformly throughout the film matrix, so a geometrically accurate cut produces a proportionally accurate dose. Tablets cannot be cut accurately — their active ingredient is not uniformly distributed, and the cut surface area introduces variability. This app is designed around films.
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ PHOTO IMPORT ═══════════════ -->
+  <div id="panel-import" class="panel">
+    <div class="card">
+      <div class="card-label">photograph handwritten notes</div>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" capture="environment">
+        <div class="dz-icon">&#9636;</div>
+        <div class="dz-label">tap to photograph or upload</div>
+        <div class="dz-sub">expected columns: DATE &mdash; TIME &mdash; DOSE</div>
+      </div>
+      <img id="previewImg" class="preview-img">
+      <div id="importStatus" class="status-bar"></div>
+    </div>
+    <div id="results-section" style="display:none">
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">found</div><div class="metric-val" id="cnt-total">0</div></div>
+        <div class="metric"><div class="metric-label">new</div><div class="metric-val ok" id="cnt-new">0</div></div>
+        <div class="metric"><div class="metric-label">duplicates</div><div class="metric-val" id="cnt-dup" style="color:var(--amber)">0</div></div>
+        <div class="metric"><div class="metric-label">errors</div><div class="metric-val" id="cnt-err" style="color:var(--red)">0</div></div>
+      </div>
+      <div class="hist-table-wrap" style="max-height:300px">
+        <table>
+          <thead><tr><th>date</th><th>time</th><th>dose (mcg)</th><th>notes</th><th>status</th></tr></thead>
+          <tbody id="parsedBody"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="mergeImport()">merge new entries</button>
+        <button class="btn btn-ghost" onclick="resetImport()">start over</button>
+      </div>
+      <div id="mergeResult" class="status-bar" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SUPPORT ═══════════════ -->
+  <div id="panel-support" class="panel">
+    <div class="support-card">
+      <div class="support-title" data-i18n="support_title">SMACK TRACKER LICENSE</div>
+      <div class="support-desc">This app is complimentary. No ads, no data collection, no account required — everything runs locally in your browser.</div>
+
+      <div style="font-size:12px;color:var(--text);line-height:1.8;margin-bottom:20px;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <p style="margin-bottom:10px">$2.99/month in USD or the equivalent in Bitcoin. Larger one-time donations are also appreciated. Money helps support new features, better tracking tools, and additional resources for people navigating their taper.</p>
+        <p style="margin-bottom:10px">If you can't pay, you can do this by hand with a calculator — that's actually how this app came to be. I was doing it by hand and decided to build something better. It cost me money, time, and emotional stability. It was scary and destabilizing. But I thought it should exist for people who need it.</p>
+        <p style="margin-bottom:10px">I've been poor my whole life. Living paycheck to paycheck is tough and I know what that's like. But if I gave you something of value, let me see proof of that with dollar signs — otherwise I'll just assume no one's using it, which would be disheartening.</p>
+        <p>It's 10 cents a day to let me know you're there. That I'm not alone. That I added value to your life. So I can keep building.</p>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:18px;font-size:11px;color:var(--text2);line-height:1.7">
+        <strong style="color:var(--text)">Which option?</strong>
+        For a <strong style="color:var(--text)">one-time donation</strong>, Venmo or Bitcoin send the most to me — no platform cut. For a <strong style="color:var(--text)">recurring $2.99/month subscription</strong>, use Stripe below; Stripe handles recurring billing and will also calculate and charge any applicable sales tax.
+      </div>
+
+      <div class="pay-row">
+        <div class="pay-method">Stripe</div>
+        <div class="pay-detail">
+          <div style="margin-bottom:8px">$2.99 / month subscription · billed automatically · tax added where applicable</div>
+          <a class="btn btn-primary btn-small" id="stripeSubBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">subscribe — $2.99/mo</a>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">opens a secure Stripe checkout page · cancel anytime</div>
+        </div>
+      </div>
+
+      <div class="pay-row">
+        <div class="pay-method">Venmo</div>
+        <div class="pay-detail">
+          <a class="pay-link" href="https://venmo.com/Kristopher-Granger-7?txn=pay&amount=2.99&note=Smack%20Tracker%20License" target="_blank" rel="noopener">@Kristopher-Granger-7</a>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">best for one-time donations — amount pre-filled at $2.99, no fee taken</div>
+        </div>
+      </div>
+
+      <div class="pay-row">
+        <div class="pay-method">Bitcoin</div>
+        <div class="pay-detail">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">best for one-time donations — no platform cut</div>
+          <div class="btc-addr">3BgLP6oMQZfTHEuFQnc1Rdjhv48TYLSSZ9</div>
+          <button class="btn btn-ghost btn-small" style="margin-top:6px" onclick="copyBTC(this)">copy address</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════ CLINICIAN MODAL ═══════════════ -->
+  <div id="clinicianModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeClinModal()">
+    <div class="modal-box">
+      <div class="modal-title">CLINICIAN ACCESS</div>
+      <div class="modal-body">
+        <p>This feature allows a clinician to track patient dose history using an Instance ID provided voluntarily by the patient.</p>
+        <p>The app is designed to empower users, not to enable clinician surveillance. Users have full control over whether they share their information. Ideally, this is done within a mutually agreed-upon therapeutic relationship built on trust and professional ethics consistent with the Hippocratic tradition.</p>
+        <p>The patient is responsible for their own tracking and logging. If a patient loses their local data, the clinician may share what they have on file as a last resort — but this is not a substitute for the patient maintaining their own backup.</p>
+      </div>
+      <label class="modal-check">
+        <input type="checkbox" id="clinModalDontShow" onchange="saveClinModalPref()">
+        Do not show this again
+      </label>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="enterClinician()">continue to clinician</button>
+        <button class="btn btn-ghost" onclick="closeClinModal()">cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CLINICIAN PANEL ═══════════════ -->
+  <div id="panel-clinician" class="panel">
+    <div class="card">
+      <div class="card-label" data-i18n="clin_instance_title">your instance id</div>
+      <div class="instance-box">
+        <div class="instance-sub">Share this ID with your clinician to grant them access to your dose history. This is entirely your choice.</div>
+        <div class="instance-id" id="instanceIdDisplay">—</div>
+        <button class="btn btn-ghost btn-small" style="margin-top:8px" onclick="copyInstanceId()">copy id</button>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="card-label" style="margin-bottom:6px" data-i18n="clin_monthly_avg">monthly average dose</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:8px">Average daily total and per-dose amount for each month with recorded data, drawn from this device's dose history.</div>
+        <div id="avgDoseWrap"></div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text3);line-height:1.7;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        Your Instance ID is generated locally and stored only on your device. Sharing it is entirely your choice. You can regenerate it at any time, which will invalidate the previous ID with your clinician.
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-ghost btn-small" style="color:var(--red);border-color:var(--red)" onclick="regenInstanceId()">regenerate id</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">look up a patient by instance id</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="hist-search" id="patientIdInput" placeholder="paste instance id..." style="flex:1">
+        <button class="btn btn-primary btn-small" onclick="lookupPatient()">look up</button>
+      </div>
+      <div id="patientResult" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- hidden container populated only during print -->
+<div id="printOnly"></div>
+
+<script>
+// ─── seed data (compact fallback — only used on first-ever load) ─────────────
+// If localStorage already has data, this is never read.
+// To restore from backup, use the "import json" button in the history tab.
+const SEED=[];
+
+// ─── store ────────────────────────────────────────────────────────────────────
+const STORE_KEY='smackTrackerData_v2';
+const SEED_MERGE_FLAG='smackTracker_seedMerged_v105';
+// One-time, non-destructive merge of the embedded history (SEED) into stored data.
+// Adds only entries not already present (dedup by minute + dose), then sets a flag so
+// it never runs again — meaning edits and deletions you make afterward always stick.
+function loadData(){
+  let cur=[];
+  try{const r=localStorage.getItem(STORE_KEY);if(r){const p=JSON.parse(r);if(Array.isArray(p))cur=p;}}catch(e){}
+  try{
+    if(SEED.length && localStorage.getItem(SEED_MERGE_FLAG)!=='1'){
+      const present=new Set(cur.map(e=>e.time+'|'+Math.round(e.amountMcg)));
+      let added=false;
+      for(const s of SEED){const k=s.time+'|'+Math.round(s.amountMcg);if(!present.has(k)){cur.push(Object.assign({},s));present.add(k);added=true;}}
+      if(added) saveData(cur);
+      localStorage.setItem(SEED_MERGE_FLAG,'1');
+    }
+  }catch(e){}
+  return cur.slice();
+}
+function saveData(d){localStorage.setItem(STORE_KEY,JSON.stringify(d));}
+function getData(){return loadData().sort((a,b)=>new Date(b.time)-new Date(a.time));}
+function isDup(e,d){return d.some(x=>x.time===e.time&&Math.round(x.amountMcg)===Math.round(e.amountMcg));}
+
+// ─── i18n ───────────────────────────────────────────────────────────────────
+// All 30 target languages are listed for v1.0. Languages with a full chrome
+// translation below render localized; any not yet translated fall back to
+// English so nothing is ever shown half-broken. Long-form clinical text is
+// intentionally left in English pending native-speaker review before release.
+const LANGS = [
+  {code:'en', native:'English'},        {code:'es', native:'Español'},
+  {code:'fr', native:'Français'},       {code:'de', native:'Deutsch'},
+  {code:'nl', native:'Nederlands'},     {code:'sv', native:'Svenska'},
+  {code:'no', native:'Norsk'},          {code:'da', native:'Dansk'},
+  {code:'fi', native:'Suomi'},          {code:'is', native:'Íslenska'},
+  {code:'pt', native:'Português'},      {code:'it', native:'Italiano'},
+  {code:'el', native:'Ελληνικά'},       {code:'pl', native:'Polski'},
+  {code:'cs', native:'Čeština'},        {code:'sk', native:'Slovenčina'},
+  {code:'hu', native:'Magyar'},         {code:'ro', native:'Română'},
+  {code:'bg', native:'Български'},       {code:'hr', native:'Hrvatski'},
+  {code:'sl', native:'Slovenščina'},    {code:'et', native:'Eesti'},
+  {code:'lv', native:'Latviešu'},       {code:'lt', native:'Lietuvių'},
+  {code:'mt', native:'Malti'},          {code:'hi', native:'हिन्दी'},
+  {code:'ms', native:'Bahasa Melayu'},  {code:'zh', native:'中文'},
+  {code:'he', native:'עברית', rtl:true},{code:'ar', native:'العربية', rtl:true}
+];
+
+const LANG = {
+  en:{app_sub:'buprenorphine dose & planner',nav_dashboard:'dashboard',nav_simulator:'simulator',nav_cutguide:'cut guide',nav_photo:'photo import',nav_license:'purchase license',nav_clinician:'clinician',lang_label:'LANGUAGE',log_a_dose:'log a dose',dose_history:'dose history',now_blood_level:'present blood level',now_last_dose:'last dose',now_datetime:'date & time now',sim_new_schedule:'new schedule',sim_units:'units',sim_dose:'dose',sim_interval:'interval',sim_set_exact:'set exact:',sim_ceiling:'ceiling',sim_prior_ss:'prior steady state',sim_starting_peak:'starting peak',ss_peak:'ss peak',ss_trough:'ss trough',days_to_ss:'days to ss',vs_ceiling:'vs ceiling',support_title:'SMACK TRACKER LICENSE',clin_instance_title:'your instance id',clin_monthly_avg:'monthly average dose'},
+  es:{app_sub:'dosis y planificador de buprenorfina',nav_dashboard:'panel',nav_simulator:'simulador',nav_cutguide:'guía de corte',nav_photo:'importar foto',nav_license:'comprar licencia',nav_clinician:'clínico',lang_label:'IDIOMA',log_a_dose:'registrar dosis',dose_history:'historial de dosis',now_blood_level:'nivel en sangre actual',now_last_dose:'última dosis',now_datetime:'fecha y hora ahora',sim_new_schedule:'nuevo régimen',sim_units:'unidades',sim_dose:'dosis',sim_interval:'intervalo',sim_set_exact:'valor exacto:',sim_ceiling:'techo',sim_prior_ss:'estado estable previo',sim_starting_peak:'pico inicial',ss_peak:'pico EE',ss_trough:'valle EE',days_to_ss:'días al EE',vs_ceiling:'vs techo',support_title:'LICENCIA SMACK TRACKER',clin_instance_title:'tu id de instancia',clin_monthly_avg:'dosis media mensual'},
+  fr:{app_sub:'dose et planificateur de buprénorphine',nav_dashboard:'tableau de bord',nav_simulator:'simulateur',nav_cutguide:'guide de coupe',nav_photo:'importer photo',nav_license:'acheter licence',nav_clinician:'clinicien',lang_label:'LANGUE',log_a_dose:'enregistrer une dose',dose_history:'historique des doses',now_blood_level:'taux sanguin actuel',now_last_dose:'dernière dose',now_datetime:'date et heure',sim_new_schedule:'nouveau schéma',sim_units:'unités',sim_dose:'dose',sim_interval:'intervalle',sim_set_exact:'valeur exacte :',sim_ceiling:'plafond',sim_prior_ss:'état stable précédent',sim_starting_peak:'pic initial',ss_peak:'pic EE',ss_trough:'creux EE',days_to_ss:'jours vers EE',vs_ceiling:'vs plafond',support_title:'LICENCE SMACK TRACKER',clin_instance_title:'votre id d\u2019instance',clin_monthly_avg:'dose moyenne mensuelle'},
+  de:{app_sub:'buprenorphin-dosis & planer',nav_dashboard:'übersicht',nav_simulator:'simulator',nav_cutguide:'schneideanleitung',nav_photo:'foto importieren',nav_license:'lizenz kaufen',nav_clinician:'behandler',lang_label:'SPRACHE',log_a_dose:'dosis erfassen',dose_history:'dosisverlauf',now_blood_level:'aktueller blutspiegel',now_last_dose:'letzte dosis',now_datetime:'datum & uhrzeit',sim_new_schedule:'neues schema',sim_units:'einheiten',sim_dose:'dosis',sim_interval:'intervall',sim_set_exact:'exakt einstellen:',sim_ceiling:'obergrenze',sim_prior_ss:'früherer steady state',sim_starting_peak:'startpeak',ss_peak:'SS-peak',ss_trough:'SS-tal',days_to_ss:'tage bis SS',vs_ceiling:'vs grenze',support_title:'SMACK TRACKER LIZENZ',clin_instance_title:'deine instanz-id',clin_monthly_avg:'monatliche durchschnittsdosis'},
+  nl:{app_sub:'buprenorfine dosis & planner',nav_dashboard:'dashboard',nav_simulator:'simulator',nav_cutguide:'snijgids',nav_photo:'foto importeren',nav_license:'licentie kopen',nav_clinician:'behandelaar',lang_label:'TAAL',log_a_dose:'dosis loggen',dose_history:'dosisgeschiedenis',now_blood_level:'huidig bloedniveau',now_last_dose:'laatste dosis',now_datetime:'datum & tijd nu',sim_new_schedule:'nieuw schema',sim_units:'eenheden',sim_dose:'dosis',sim_interval:'interval',sim_set_exact:'exact instellen:',sim_ceiling:'plafond',sim_prior_ss:'vorige steady state',sim_starting_peak:'startpiek',ss_peak:'SS-piek',ss_trough:'SS-dal',days_to_ss:'dagen tot SS',vs_ceiling:'vs plafond',support_title:'SMACK TRACKER LICENTIE',clin_instance_title:'jouw instantie-id',clin_monthly_avg:'gemiddelde maanddosis'},
+  sv:{app_sub:'buprenorfin dos & planerare',nav_dashboard:'översikt',nav_simulator:'simulator',nav_cutguide:'skärguide',nav_photo:'importera foto',nav_license:'köp licens',nav_clinician:'kliniker',lang_label:'SPRÅK',log_a_dose:'logga dos',dose_history:'doshistorik',now_blood_level:'nuvarande blodnivå',now_last_dose:'senaste dos',now_datetime:'datum & tid nu',sim_new_schedule:'nytt schema',sim_units:'enheter',sim_dose:'dos',sim_interval:'intervall',sim_set_exact:'ange exakt:',sim_ceiling:'tak',sim_prior_ss:'tidigare steady state',sim_starting_peak:'starttopp',ss_peak:'SS-topp',ss_trough:'SS-dal',days_to_ss:'dagar till SS',vs_ceiling:'vs tak',support_title:'SMACK TRACKER-LICENS',clin_instance_title:'ditt instans-id',clin_monthly_avg:'genomsnittlig månadsdos'},
+  no:{app_sub:'buprenorfin dose & planlegger',nav_dashboard:'oversikt',nav_simulator:'simulator',nav_cutguide:'kutteguide',nav_photo:'importer foto',nav_license:'kjøp lisens',nav_clinician:'kliniker',lang_label:'SPRÅK',log_a_dose:'logg dose',dose_history:'dosehistorikk',now_blood_level:'nåværende blodnivå',now_last_dose:'siste dose',now_datetime:'dato & tid nå',sim_new_schedule:'nytt opplegg',sim_units:'enheter',sim_dose:'dose',sim_interval:'intervall',sim_set_exact:'sett eksakt:',sim_ceiling:'tak',sim_prior_ss:'tidligere steady state',sim_starting_peak:'starttopp',ss_peak:'SS-topp',ss_trough:'SS-bunn',days_to_ss:'dager til SS',vs_ceiling:'vs tak',support_title:'SMACK TRACKER-LISENS',clin_instance_title:'din instans-id',clin_monthly_avg:'gjennomsnittlig månedsdose'},
+  da:{app_sub:'buprenorfin dosis & planlægger',nav_dashboard:'oversigt',nav_simulator:'simulator',nav_cutguide:'skæreguide',nav_photo:'importér foto',nav_license:'køb licens',nav_clinician:'kliniker',lang_label:'SPROG',log_a_dose:'log dosis',dose_history:'dosishistorik',now_blood_level:'aktuelt blodniveau',now_last_dose:'sidste dosis',now_datetime:'dato & tid nu',sim_new_schedule:'nyt skema',sim_units:'enheder',sim_dose:'dosis',sim_interval:'interval',sim_set_exact:'sæt præcist:',sim_ceiling:'loft',sim_prior_ss:'tidligere steady state',sim_starting_peak:'starttop',ss_peak:'SS-top',ss_trough:'SS-bund',days_to_ss:'dage til SS',vs_ceiling:'vs loft',support_title:'SMACK TRACKER-LICENS',clin_instance_title:'dit instans-id',clin_monthly_avg:'gennemsnitlig månedsdosis'},
+  pt:{app_sub:'dose e planejador de buprenorfina',nav_dashboard:'painel',nav_simulator:'simulador',nav_cutguide:'guia de corte',nav_photo:'importar foto',nav_license:'comprar licença',nav_clinician:'clínico',lang_label:'IDIOMA',log_a_dose:'registrar dose',dose_history:'histórico de doses',now_blood_level:'nível sanguíneo atual',now_last_dose:'última dose',now_datetime:'data e hora agora',sim_new_schedule:'novo esquema',sim_units:'unidades',sim_dose:'dose',sim_interval:'intervalo',sim_set_exact:'valor exato:',sim_ceiling:'teto',sim_prior_ss:'estado estável anterior',sim_starting_peak:'pico inicial',ss_peak:'pico EE',ss_trough:'vale EE',days_to_ss:'dias até EE',vs_ceiling:'vs teto',support_title:'LICENÇA SMACK TRACKER',clin_instance_title:'seu id de instância',clin_monthly_avg:'dose média mensal'},
+  it:{app_sub:'dose e pianificatore di buprenorfina',nav_dashboard:'pannello',nav_simulator:'simulatore',nav_cutguide:'guida al taglio',nav_photo:'importa foto',nav_license:'acquista licenza',nav_clinician:'clinico',lang_label:'LINGUA',log_a_dose:'registra dose',dose_history:'storico dosi',now_blood_level:'livello ematico attuale',now_last_dose:'ultima dose',now_datetime:'data e ora ora',sim_new_schedule:'nuovo schema',sim_units:'unità',sim_dose:'dose',sim_interval:'intervallo',sim_set_exact:'valore esatto:',sim_ceiling:'soglia',sim_prior_ss:'stato stazionario precedente',sim_starting_peak:'picco iniziale',ss_peak:'picco SS',ss_trough:'valle SS',days_to_ss:'giorni allo SS',vs_ceiling:'vs soglia',support_title:'LICENZA SMACK TRACKER',clin_instance_title:'il tuo id istanza',clin_monthly_avg:'dose media mensile'},
+  pl:{app_sub:'dawka i planer buprenorfiny',nav_dashboard:'pulpit',nav_simulator:'symulator',nav_cutguide:'przewodnik cięcia',nav_photo:'importuj zdjęcie',nav_license:'kup licencję',nav_clinician:'klinicysta',lang_label:'JĘZYK',log_a_dose:'zapisz dawkę',dose_history:'historia dawek',now_blood_level:'obecny poziom we krwi',now_last_dose:'ostatnia dawka',now_datetime:'data i godzina',sim_new_schedule:'nowy schemat',sim_units:'jednostki',sim_dose:'dawka',sim_interval:'odstęp',sim_set_exact:'ustaw dokładnie:',sim_ceiling:'pułap',sim_prior_ss:'poprzedni stan stacjonarny',sim_starting_peak:'szczyt początkowy',ss_peak:'szczyt SS',ss_trough:'dolina SS',days_to_ss:'dni do SS',vs_ceiling:'vs pułap',support_title:'LICENCJA SMACK TRACKER',clin_instance_title:'twój identyfikator',clin_monthly_avg:'średnia dawka miesięczna'},
+  zh:{app_sub:'丁丙诺啡剂量与规划',nav_dashboard:'仪表板',nav_simulator:'模拟器',nav_cutguide:'切割指南',nav_photo:'导入照片',nav_license:'购买许可',nav_clinician:'临床医生',lang_label:'语言',log_a_dose:'记录剂量',dose_history:'剂量历史',now_blood_level:'当前血药水平',now_last_dose:'上次剂量',now_datetime:'当前日期和时间',sim_new_schedule:'新方案',sim_units:'单位',sim_dose:'剂量',sim_interval:'间隔',sim_set_exact:'精确设置：',sim_ceiling:'上限',sim_prior_ss:'先前稳态',sim_starting_peak:'起始峰值',ss_peak:'稳态峰值',ss_trough:'稳态谷值',days_to_ss:'达稳态天数',vs_ceiling:'对比上限',support_title:'SMACK TRACKER 许可',clin_instance_title:'你的实例 ID',clin_monthly_avg:'每月平均剂量'}
+};
+
+let curLang = localStorage.getItem('st_lang') || 'en';
+function t(key){ return (LANG[curLang] && LANG[curLang][key]) || LANG.en[key] || key; }
+function langDef(code){ return LANGS.find(l=>l.code===code) || LANGS[0]; }
+function applyLang(){
+  const def = langDef(curLang);
+  document.documentElement.lang = curLang;
+  document.documentElement.dir = def.rtl ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  const enBtn = document.getElementById('langEnBtn');
+  if(enBtn) enBtn.classList.toggle('active', curLang==='en');
+  document.querySelectorAll('#langMenu .lang-opt').forEach(b=>{
+    b.classList.toggle('active', b.dataset.code===curLang);
+  });
+}
+function buildLangMenu(){
+  const menu = document.getElementById('langMenu'); if(!menu) return;
+  menu.innerHTML = '';
+  LANGS.forEach(l=>{
+    const b = document.createElement('button');
+    b.className = 'lang-opt' + (l.code===curLang ? ' active' : '');
+    b.dataset.code = l.code;
+    const translated = !!LANG[l.code];
+    b.innerHTML = l.native + (translated ? '' : ' <small>(EN)</small>');
+    b.onclick = ()=> setLang(l.code);
+    menu.appendChild(b);
+  });
+}
+function toggleLangMenu(){ document.getElementById('langMenu').classList.toggle('open'); }
+function closeLangMenu(){ const m=document.getElementById('langMenu'); if(m) m.classList.remove('open'); }
+function setLang(code){
+  curLang = code;
+  localStorage.setItem('st_lang', code);
+  closeLangMenu();
+  applyLang();
+}
+document.addEventListener('click', e=>{
+  if(!e.target.closest('.lang-wrap')) closeLangMenu();
+});
+
+// ─── theme ────────────────────────────────────────────────────────────────────
+let darkMode = localStorage.getItem('st_theme')==='dark';
+function applyTheme(){
+  document.documentElement.classList.toggle('dark',darkMode);
+  document.getElementById('themeLabel').textContent=darkMode?'dark':'light';
+  const histActive=document.getElementById('panel-history').classList.contains('active');
+  const simActive=document.getElementById('panel-simulator').classList.contains('active');
+  if(histActive) requestAnimationFrame(()=>rebuildPkChart());
+  if(simActive)  requestAnimationFrame(()=>redrawSim());
+}
+function toggleTheme(){
+  darkMode=!darkMode;
+  localStorage.setItem('st_theme',darkMode?'dark':'light');
+  applyTheme();
+}
+applyTheme();
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+function getCSSVar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function chartColors(){
+  return {
+    line: darkMode?'#4ab0e8':'#1a6fa8',
+    fill: darkMode?'rgba(74,176,232,0.07)':'rgba(26,111,168,0.08)',
+    grid: darkMode?'#1e1e1e':'#e8e6de',
+    tick: darkMode?'#555550':'#9a9a90',
+    red:  darkMode?'#ff4444':'#c0392b',
+    dash: darkMode?'#444440':'#bbbbaa',
+  };
+}
+
+// ─── clock ────────────────────────────────────────────────────────────────────
+function updateClock(){
+  const n=new Date();
+  const d=n.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const t=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clockDisplay').innerHTML=d+'<br>'+t;
+  try{ updateNowBlock(); }catch(e){}
+}
+setInterval(updateClock,1000); updateClock();
+function setLogTimeNow(){
+  const n=new Date(),pad=x=>String(x).padStart(2,'0');
+  document.getElementById('logTime').value=n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())+'T'+pad(n.getHours())+':'+pad(n.getMinutes());
+}
+setLogTimeNow();
+
+// ─── nav ──────────────────────────────────────────────────────────────────────
+function showPanel(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='history'){
+    renderHistory();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>rebuildPkChart()));
+  }
+  if(name==='simulator') requestAnimationFrame(()=>requestAnimationFrame(()=>redrawSim()));
+  if(name==='cutter') renderCutGuide();
+}
+
+// ─── history table ────────────────────────────────────────────────────────────
+function logDose(){
+  const t=document.getElementById('logTime').value;
+  const d=parseFloat(document.getElementById('logDose').value);
+  const n=document.getElementById('logNotes').value.trim();
+  if(!t||!d||d<=0){alert('Enter a valid time and dose.');return;}
+  const data=loadData();
+  data.push({time:t,amountMcg:d,drug:'bup',form:'Sublingual film',notes:n,symptoms:null});
+  saveData(data); document.getElementById('logDose').value=''; document.getElementById('logNotes').value='';
+  setLogTimeNow(); renderHistory(); renderPkChart();
+}
+function renderHistory(){
+  const data=getData();
+  const search=document.getElementById('histSearch').value.toLowerCase();
+  const days=parseInt(document.getElementById('histDays').value);
+  const cutoff=days>0?new Date(Date.now()-days*86400000):new Date(0);
+  const filtered=data.filter(r=>new Date(r.time)>=cutoff&&(!search||(r.notes||'').toLowerCase().includes(search)));
+  const tbody=document.getElementById('histBody');
+  tbody.innerHTML='';
+  filtered.forEach(r=>{
+    const dt=new Date(r.time);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="time-cell">${dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} ${dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</td><td class="dose-cell">${Math.round(r.amountMcg*10)/10} mcg</td><td style="color:var(--text3);font-size:11px">${r.form||''}</td><td style="color:var(--text2)">${r.notes||''}</td><td><button class="del-btn" onclick="deleteEntry('${r.time}',${r.amountMcg})">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('histCount').textContent=filtered.length+' entries shown';
+}
+function deleteEntry(time,amt){
+  if(!confirm('Delete this entry?'))return;
+  let d=loadData();const i=d.findIndex(e=>e.time===time&&e.amountMcg===amt);
+  if(i>-1)d.splice(i,1);saveData(d);renderHistory();renderPkChart();
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(getData(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='smack_tracker_backup.json';a.click();
+}
+function importJSON(){document.getElementById('importFile').click();}
+function handleImportFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const inc=JSON.parse(ev.target.result);
+      if(!Array.isArray(inc))throw new Error('not an array');
+      const ex=loadData();let added=0;
+      inc.forEach(r=>{if(!isDup(r,ex)){ex.push(r);added++;}});
+      saveData(ex);alert('Imported '+added+' new entries.');renderHistory();renderPkChart();
+    }catch(err){alert('Import failed: '+err.message);}
+  };
+  reader.readAsText(file);e.target.value='';
+}
+
+// ─── PK sharktooth chart ──────────────────────────────────────────────────────
+// Buprenorphine sublingual PK constants (literature-based)
+// F  = 0.40  (bioavailability, sublingual film, Nath 2012, Strain 2004)
+// t½ = 37hr  (effective terminal t½, chronic dosing, accounts for redistribution)
+// tPeak slider = absorption rate proxy; controls ka = ln(2)/tPeak_slider
+//   — tPeak slider is NOT equal to the actual curve peak time (tmax)
+//   — Actual tmax = ln(ka/ke)/(ka-ke) emerges from the model (≈7.2hr at defaults)
+// ke = ln(2)/t½    (first-order elimination rate constant)
+// Model: one-compartment oral, C(t) = D·ka/(ka-ke) · (e^(-ke·t) - e^(-ka·t))
+// Units: mcg-accumulated (dose-equivalent, not plasma ng/mL; F implicit in scale)
+// At default settings (t½=37hr, tPeak-slider=1.5hr → ka=0.462/hr, ke=0.0187/hr):
+//   tmax ≈ 7.2hr, 1mg QD SS peak ≈ 2477 mcg, SS trough ≈ 1836 mcg (74% of peak)
+//   Trough ≠ "half of peak" for bup — half-of-peak only holds when τ ≈ t½
+
+const F_BUP = 0.40;
+
+// Live PK params — updated by sliders, defaults to literature values
+let pkParams = {
+  tHalf: 37,   // hours
+  tPeak: 1.5,  // hours (time to max concentration, proxy for 1/ka)
+};
+
+function getPkKe()  { return Math.log(2) / pkParams.tHalf; }
+function getPkKa()  {
+  // ka must be > ke for the model to work (flip-flop avoided by Tmax < t½)
+  const ka = Math.log(2) / pkParams.tPeak;
+  const ke = getPkKe();
+  // Guard: if somehow ka ≤ ke (shouldn't happen with valid inputs), nudge ka
+  return ka > ke ? ka : ke * 2;
+}
+
+// Single-dose concentration at time t hours post-dose (oral 1-cpt model)
+// NOTE: F is NOT applied here. Display units are mcg-accumulated (dose-equivalent),
+// not plasma ng/mL. This matches clinical observation: 1mg QD → ~2300 mcg SS peak.
+// F is already implicit in the taper-relevant dose relationships.
+function pkConc(doseAmtMcg, tHours) {
+  if(tHours < 0) return 0;
+  const ke = getPkKe();
+  const ka = getPkKa();
+  if(Math.abs(ka - ke) < 1e-9) {
+    return doseAmtMcg * ke * tHours * Math.exp(-ke * tHours);
+  }
+  return (doseAmtMcg * ka / (ka - ke)) * (Math.exp(-ke * tHours) - Math.exp(-ka * tHours));
+}
+
+function onPkParamChange() {
+  const hl = parseFloat(document.getElementById('pkHalfLife').value);
+  const tp = parseFloat(document.getElementById('pkTpeak').value);
+  pkParams.tHalf = hl;
+  pkParams.tPeak = tp;
+  document.getElementById('pkHalfLife-out').textContent = hl.toFixed(1) + ' hr';
+  document.getElementById('pkTpeak-out').textContent   = tp.toFixed(1) + ' hr';
+  updatePkFooter();
+  rebuildPkChart();
+}
+
+function updatePkFooter() {
+  const ke = getPkKe();
+  const ka = getPkKa();
+  document.getElementById('pkFooter').textContent =
+    'oral 1-cpt model · t½=' + pkParams.tHalf.toFixed(1) + 'hr · Tmax=' + pkParams.tPeak.toFixed(1) + 'hr · ke=' + ke.toFixed(4) + '/hr · ka=' + ka.toFixed(4) + '/hr';
+}
+
+let pkChart=null, pkRangeKey='30d';
+
+const PK_RANGES=[
+  {key:'3d',   label:'3 days',  days:3},
+  {key:'7d',   label:'1 week',  days:7},
+  {key:'30d',  label:'1 month', days:30},
+  {key:'6mo',  label:'6 months',days:183},
+  {key:'1yr',  label:'1 year',  days:365},
+  {key:'2026', label:'2026',    year:2026},
+  {key:'3yr',  label:'3 years', days:1095},
+  {key:'all',  label:'all time',days:0},
+];
+
+function buildRangeBar(){
+  const bar=document.getElementById('pkRangeBar');
+  bar.innerHTML='';
+  PK_RANGES.forEach(r=>{
+    const btn=document.createElement('button');
+    btn.className='range-pill'+(r.key===pkRangeKey?' active':'');
+    btn.textContent=r.label;
+    btn.onclick=()=>{pkRangeKey=r.key;buildRangeBar();renderPkChart();};
+    bar.appendChild(btn);
+  });
+  // dynamic year pills
+  const data=loadData();
+  if(data.length){
+    const years=[...new Set(data.map(r=>new Date(r.time).getFullYear()))].sort();
+    years.forEach(yr=>{
+      if(yr===2026)return; // already in defaults
+      if(bar.querySelector(`[data-yr="${yr}"]`))return;
+      const btn=document.createElement('button');
+      btn.className='range-pill'+(pkRangeKey===String(yr)?' active':'');
+      btn.textContent=String(yr);
+      btn.dataset.yr=yr;
+      btn.onclick=()=>{pkRangeKey=String(yr);buildRangeBar();renderPkChart();};
+      bar.insertBefore(btn,bar.children[bar.children.length-1]);
+    });
+  }
+}
+
+function getPkWindow(){
+  const range=PK_RANGES.find(r=>r.key===pkRangeKey)||(()=>{
+    // year key
+    const yr=parseInt(pkRangeKey);
+    if(!isNaN(yr))return{year:yr};
+    return{days:30};
+  })();
+  const now=Date.now();
+  if(range.year){
+    return{start:new Date(range.year,0,1).getTime(), end:new Date(range.year+1,0,1).getTime()};
+  }
+  if(range.days===0){
+    const data=loadData();
+    if(!data.length)return{start:now-30*86400000,end:now+86400000};
+    const earliest=Math.min(...data.map(r=>new Date(r.time).getTime()));
+    return{start:earliest-3600000,end:now+86400000};
+  }
+  return{start:now-range.days*86400000,end:now+3600000};
+}
+
+function simulatePkSeries(data, windowStart, windowEnd){
+  const sorted=[...data].sort((a,b)=>new Date(a.time)-new Date(b.time));
+  if(!sorted.length)return{times:[],levels:[]};
+
+  // Include all doses up to windowEnd that could still contribute at windowStart
+  // Cutoff: doses more than 7 half-lives before windowStart contribute < 1% — ignore them
+  const ignoreCutoffMs = windowStart - 7 * pkParams.tHalf * 3600000;
+  const doses = sorted.filter(r => {
+    const ms = new Date(r.time).getTime();
+    return ms >= ignoreCutoffMs && ms <= windowEnd;
+  });
+
+  // Adaptive resolution
+  const windowHours = (windowEnd - windowStart) / 3600000;
+  let dtHours;
+  if      (windowHours <= 72)   dtHours = 0.1;
+  else if (windowHours <= 720)  dtHours = 0.5;
+  else if (windowHours <= 4380) dtHours = 2;
+  else                           dtHours = 6;
+
+  const times=[], levels=[];
+  const dtMs = dtHours * 3600000;
+
+  for(let ms = windowStart; ms <= windowEnd; ms += dtMs){
+    let lv = 0;
+    for(const dose of doses){
+      const doseMs = new Date(dose.time).getTime();
+      if(doseMs > ms) break; // doses are sorted ascending
+      const tH = (ms - doseMs) / 3600000;
+      lv += pkConc(dose.amountMcg, tH);
+    }
+    times.push(ms);
+    levels.push(parseFloat(lv.toFixed(1)));
+  }
+  return{times, levels};
+}
+
+function renderPkChart(){
+  const data=loadData();
+  const {start,end}=getPkWindow();
+  const {times,levels}=simulatePkSeries(data,start,end);
+  const c=chartColors();
+  const windowHours=(end-start)/3600000;
+
+  function fmtLabel(ms){
+    const d=new Date(ms);
+    if(windowHours<=72)
+      return (d.getMonth()+1)+'/'+d.getDate()+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    if(windowHours<=720)
+      return (d.getMonth()+1)+'/'+d.getDate();
+    return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);
+  }
+
+  // Decide tick density
+  const maxTicks=windowHours<=72?12:windowHours<=720?14:12;
+  const step=Math.ceil(times.length/maxTicks);
+  const tickLabels=times.map((ms,i)=>i%step===0?fmtLabel(ms):'');
+
+  if(pkChart){pkChart.destroy();pkChart=null;}
+
+  pkChart=new Chart(document.getElementById('pkChart'),{
+    type:'line',
+    data:{
+      labels:tickLabels,
+      datasets:[{
+        data:levels,
+        borderColor:c.line,
+        backgroundColor:c.fill,
+        borderWidth:1.5,
+        pointRadius:0,
+        fill:true,
+        tension:0
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{
+        callbacks:{
+          title:ctx=>{const ms=times[ctx[0].dataIndex];return new Date(ms).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});},
+          label:ctx=>Math.round(ctx.parsed.y).toLocaleString()+' mcg'
+        }
+      }},
+      scales:{
+        x:{type:'category',ticks:{color:c.tick,font:{size:9,family:'Courier New'},maxRotation:45,autoSkip:true,maxTicksLimit:14},grid:{color:c.grid}},
+        y:{min:0,ticks:{color:c.tick,font:{size:10,family:'Courier New'},callback:v=>v.toLocaleString()},grid:{color:c.grid}}
+      }
+    }
+  });
+}
+
+function rebuildPkChart(){if(pkChart){pkChart.destroy();pkChart=null;}renderPkChart();}
+
+// ─── present blood level + dashboard status ────────────────────────────────────
+// Uses the same oral 1-cpt model as the dashboard chart for consistency.
+function currentBloodLevelMcg(){
+  const data = loadData();
+  const now = Date.now();
+  const cutoffH = 12 * pkParams.tHalf;   // beyond this a dose contributes <0.03%
+  let lv = 0;
+  for(const d of data){
+    const ms = new Date(d.time).getTime();
+    if(ms > now) continue;
+    const tH = (now - ms) / 3600000;
+    if(tH > cutoffH) continue;
+    lv += pkConc(d.amountMcg, tH);
+  }
+  return lv;
+}
+function fmtAgo(ms){
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if(mins < 1)  return 'just now';
+  if(mins < 60) return mins + ' min ago';
+  const hrs = Math.floor(mins/60), rem = mins%60;
+  if(hrs < 48)  return hrs + 'h ' + rem + 'm ago';
+  return Math.floor(hrs/24) + ' days ago';
+}
+function updateNowBlock(){
+  const lv = currentBloodLevelMcg();
+  const lvEl = document.getElementById('nowLevel'); if(!lvEl) return;
+  lvEl.textContent = Math.round(lv).toLocaleString() + ' mcg';
+  document.getElementById('nowLevelSub').textContent = '≈ ' + (lv/1000).toFixed(2) + ' mg accumulated (estimated)';
+
+  const data = getData();   // sorted newest-first
+  if(data.length){
+    const last = data[0];
+    const dt = new Date(last.time);
+    document.getElementById('nowLastDose').textContent = (Math.round(last.amountMcg*10)/10).toLocaleString() + ' mcg';
+    document.getElementById('nowLastDoseTime').textContent =
+      dt.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) + ' · ' + fmtAgo(dt.getTime());
+  } else {
+    document.getElementById('nowLastDose').textContent = '—';
+    document.getElementById('nowLastDoseTime').textContent = 'no doses logged yet';
+  }
+
+  const n = new Date();
+  document.getElementById('nowDate').textContent = n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('nowTime').textContent = n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ─── clinician monthly average dose ────────────────────────────────────────────
+function renderAvgDoses(){
+  const wrap = document.getElementById('avgDoseWrap'); if(!wrap) return;
+  const data = loadData();
+  if(!data.length){
+    wrap.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px 0">No dose history on this device yet.</div>';
+    return;
+  }
+  const byMonth = {};
+  data.forEach(d=>{
+    const dt = new Date(d.time);
+    if(isNaN(dt)) return;
+    const key = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0');
+    if(!byMonth[key]) byMonth[key] = {total:0, count:0, days:new Set(), y:dt.getFullYear(), m:dt.getMonth()};
+    byMonth[key].total += d.amountMcg;
+    byMonth[key].count++;
+    byMonth[key].days.add(dt.getDate());
+  });
+  const keys = Object.keys(byMonth).sort().reverse();
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let rows = '';
+  keys.forEach(k=>{
+    const b = byMonth[k];
+    const nDays = b.days.size;
+    const avgDaily = b.total / nDays;
+    const avgPerDose = b.total / b.count;
+    rows += `<tr>
+      <td class="avg-month">${MON[b.m]} ${b.y}</td>
+      <td class="avg-val">${Math.round(avgDaily).toLocaleString()} mcg/day</td>
+      <td class="avg-val">${Math.round(avgPerDose).toLocaleString()} mcg/dose</td>
+      <td class="avg-n">${b.count} doses · ${nDays} d</td>
+    </tr>`;
+  });
+  wrap.innerHTML = `<table class="avg-table">
+    <thead><tr><th>month</th><th style="text-align:right">avg daily total</th><th style="text-align:right">avg per dose</th><th style="text-align:right">recorded</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+// ─── simulator ────────────────────────────────────────────────────────────────
+let simChart=null;
+let simUnit='mcg';   // display unit only — all internal math is in mcg
+let simTau=24;       // dosing interval in hours (source of truth)
+function fmtHM(h){const hrs=Math.floor(h),mins=Math.round((h-hrs)*60);return mins===0?hrs+'h 0m':hrs+'h '+mins+'m';}
+function fmtAmt(mcg){
+  if(simUnit==='mg'){
+    const mg=mcg/1000;
+    return (Math.round(mg*1000)/1000).toLocaleString(undefined,{maximumFractionDigits:3})+' mg';
+  }
+  return Math.round(mcg).toLocaleString()+' mcg';
+}
+
+// Accumulation (instantaneous-absorption) sharktooth model.
+// Each dose adds its full amount D at the dosing instant; between doses the level
+// decays by first-order elimination at the given half-life: C(t)=C0·e^(−ke·t).
+// At steady state the peak converges to D/(1−e^(−ke·τ)) — the standard accumulation
+// ratio. This reproduces the clinical reference (750 mcg q24h, t½=37h → ~2070 mcg)
+// and lets the curve begin exactly at the prior steady-state peak.
+function simData(dose, tau, priorPeak){
+  const totalH = 10 * 24;
+  const dt = 0.05;
+  const ke = getPkKe();
+  const nSteps = Math.round(totalH / dt);
+  const times = [], levels = [];
+  for(let i = 0; i <= nSteps; i++){
+    const t = i * dt;
+    // residual of the prior steady state (last old-schedule dose sits at t=0 = priorPeak)
+    let lv = priorPeak * Math.exp(-ke * t);
+    // new-schedule doses land at τ, 2τ, 3τ, … (the t=0 peak is the prior schedule's)
+    let k = 1;
+    while(k * tau <= t + 1e-9){
+      lv += dose * Math.exp(-ke * (t - k * tau));
+      k++;
+    }
+    times.push(parseFloat((t / 24).toFixed(4)));
+    levels.push(parseFloat(lv.toFixed(1)));
+  }
+  return {times, levels};
+}
+
+// Compute theoretical time to peak (tmax) from the model parameters.
+// tmax = ln(ka/ke) / (ka - ke) — this is the exact time the single-dose curve peaks.
+// NOTE: this is NOT the same as the tPeak slider input, which controls ka via ka=ln(2)/tPeak.
+// The slider is a convenient way to dial absorption speed; the true curve peak emerges from the model.
+function calcTmax() {
+  const ke = getPkKe();
+  const ka = getPkKa();
+  return Math.log(ka / ke) / (ka - ke);
+}
+
+// Steady-state peak via the accumulation ratio for the instantaneous-absorption model.
+// C_ss_peak = D / (1 − e^(−ke·τ)).  For 750 mcg q24h at t½=37h this is ~2071 mcg.
+function calcSsPeak(dose, tau){
+  const ke = getPkKe();
+  return dose / (1 - Math.exp(-ke * tau));
+}
+
+// Steady-state trough = the peak one full interval later (pure elimination).
+// C_ss_trough = C_ss_peak · e^(−ke·τ).
+function calcSsTrough(dose, tau){
+  const ke = getPkKe();
+  return calcSsPeak(dose, tau) * Math.exp(-ke * tau);
+}
+
+function redrawSim(){
+  const dose = parseFloat(document.getElementById('dose').value);
+  const tau  = simTau;
+  const ceil = parseFloat(document.getElementById('ceiling').value);
+  const sp   = parseFloat(document.getElementById('startPeak').value);
+
+  document.getElementById('dose-out').textContent      = fmtAmt(dose);
+  document.getElementById('interval-out').textContent  = fmtHM(tau);
+  document.getElementById('ceiling-out').textContent   = fmtAmt(ceil);
+  document.getElementById('startPeak-out').textContent = fmtAmt(sp);
+
+  const ssPeak   = calcSsPeak(dose, tau);
+  const ssTrough = calcSsTrough(dose, tau);
+
+  document.getElementById('ss-peak').textContent   = fmtAmt(ssPeak);
+  document.getElementById('ss-trough').textContent = fmtAmt(ssTrough);
+  document.getElementById('ss-days').textContent   = '~'+Math.ceil(5 * pkParams.tHalf / 24);
+
+  const diff = ssPeak - ceil;
+  const vcEl = document.getElementById('vs-ceiling');
+  if(Math.abs(diff)<50)  {vcEl.textContent='at ceiling'; vcEl.className='metric-val ok';}
+  else if(diff>0)         {vcEl.textContent='+'+fmtAmt(diff)+' over'; vcEl.className='metric-val over';}
+  else                    {vcEl.textContent=fmtAmt(Math.abs(diff))+' under'; vcEl.className='metric-val under';}
+
+  // Curve begins exactly at the prior steady-state peak, then converges to the new SS
+  const {times, levels} = simData(dose, tau, sp);
+  const maxY = Math.max(sp, ceil, ...levels) * 1.12;
+  const c = chartColors();
+
+  if(simChart){simChart.destroy();simChart=null;}
+  simChart = new Chart(document.getElementById('simChart'),{
+    type:'line',
+    data:{labels:times, datasets:[{data:levels, borderColor:c.line, backgroundColor:c.fill, borderWidth:1.5, pointRadius:0, fill:true, tension:0}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:80},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        label:ctx=>fmtAmt(ctx.parsed.y),
+        title:ctx=>'day '+parseFloat(ctx[0].label).toFixed(2)
+      }}},
+      scales:{
+        x:{type:'linear', min:0, max:10, ticks:{stepSize:1, callback:v=>Number.isInteger(v)?'day '+v:'', maxRotation:0, color:c.tick, font:{size:10,family:'Courier New'}}, grid:{color:c.grid}},
+        y:{min:0, max:Math.ceil(maxY/100)*100, ticks:{callback:v=>v.toLocaleString(), color:c.tick, font:{size:10,family:'Courier New'}}, grid:{color:c.grid}}
+      }
+    },
+    plugins:[{id:'rl', afterDraw(ch){
+      const ctx=ch.ctx, yA=ch.scales.y, xA=ch.scales.x;
+      const cv=parseFloat(document.getElementById('ceiling').value);
+      const sv=parseFloat(document.getElementById('startPeak').value);
+      const yC=yA.getPixelForValue(cv);
+      ctx.save();
+      ctx.strokeStyle=c.red; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(xA.left,yC); ctx.lineTo(xA.right,yC); ctx.stroke();
+      ctx.fillStyle=c.red; ctx.font='10px Courier New';
+      ctx.fillText('ceiling '+fmtAmt(cv), xA.right-130, yC-4);
+      const yS=yA.getPixelForValue(sv);
+      if(yS>yA.top && yS<yA.bottom){
+        ctx.strokeStyle=c.dash; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(xA.left,yS); ctx.lineTo(xA.right,yS); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle=c.dash;
+        ctx.fillText('prior '+fmtAmt(sv), xA.right-130, yS-4);
+      }
+      ctx.restore();
+    }}]
+  });
+}
+function rebuildSimChart(){if(simChart){simChart.destroy();simChart=null;}redrawSim();}
+
+// ─── simulator unit toggle ─────────────────────────────────────────────────────
+function setSimUnit(u){
+  simUnit = u;
+  document.getElementById('unitMcg').classList.toggle('active', u==='mcg');
+  document.getElementById('unitMg').classList.toggle('active', u==='mg');
+  document.querySelectorAll('#panel-simulator .unit-lbl').forEach(el=>el.textContent=u);
+  redrawSim();
+}
+
+// ─── simulator interval controls ───────────────────────────────────────────────
+function clampTau(h){ return Math.min(48, Math.max(4, h)); }
+function syncIntervalUI(){
+  const slider = document.getElementById('interval');
+  slider.value = simTau;                       // snaps thumb to nearest 0.25 step
+  let hrs = Math.floor(simTau);
+  let mins = Math.round((simTau - hrs) * 60);
+  if(mins === 60){ hrs += 1; mins = 0; }
+  document.getElementById('intervalH').value = hrs;
+  document.getElementById('intervalM').value = mins;
+  document.getElementById('interval-out').textContent = fmtHM(simTau);
+  document.querySelectorAll('#presetBar .preset-pill').forEach(p=>{
+    p.classList.toggle('active', Math.abs(parseFloat(p.dataset.tau) - simTau) < 1e-6);
+  });
+}
+function onIntervalSlider(){
+  simTau = clampTau(parseFloat(document.getElementById('interval').value));
+  syncIntervalUI();
+  redrawSim();
+}
+function onIntervalManual(){
+  const h = parseInt(document.getElementById('intervalH').value) || 0;
+  const m = parseInt(document.getElementById('intervalM').value) || 0;
+  simTau = clampTau(h + m/60);
+  syncIntervalUI();
+  redrawSim();
+}
+function setPreset(tau, btn){
+  simTau = clampTau(tau);
+  syncIntervalUI();
+  redrawSim();
+}
+
+// ─── photo import ─────────────────────────────────────────────────────────────
+let parsedRows=[];
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processImage(e.target.files[0]);});
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])processImage(e.dataTransfer.files[0]);});
+function setImportStatus(msg,type){const el=document.getElementById('importStatus');el.textContent=msg;el.className='status-bar '+type;el.style.display='block';}
+async function processImage(file){
+  setImportStatus('reading image...','loading');
+  const preview=document.getElementById('previewImg');preview.style.display='block';
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    preview.src=e.target.result;
+    const b64=e.target.result.split(',')[1],mime=file.type||'image/jpeg';
+    setImportStatus('sending to Claude for handwriting recognition...','loading');
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:'Photo of handwritten medication notes with columns DATE, TIME, DOSE. Extract every row. Return ONLY a JSON array, no preamble or markdown. Each object: {"time":"2026-06-05T14:30","amountMcg":250,"notes":"","error":null}. If dose is in mg multiply by 1000. Mark illegible rows with error string.'}]}]})});
+      const data=await resp.json();
+      if(!resp.ok)throw new Error(data.error?.message||'API error');
+      const raw=data.content.find(b=>b.type==='text')?.text||'[]';
+      parsedRows=JSON.parse(raw.replace(/```json|```/g,'').trim()).map(r=>({time:r.time||'',amountMcg:parseInt(r.amountMcg)||0,drug:'bup',form:'Sublingual film',notes:r.notes||'',symptoms:null,error:r.error||null}));
+      setImportStatus('found '+parsedRows.length+' row'+(parsedRows.length!==1?'s':'')+' — review before merging','ok');
+      document.getElementById('results-section').style.display='block';renderParsedTable();
+    }catch(err){setImportStatus('error: '+err.message,'error');}
+  };
+  reader.readAsDataURL(file);
+}
+function renderParsedTable(){
+  const ex=loadData(),tbody=document.getElementById('parsedBody');tbody.innerHTML='';
+  let cN=0,cD=0,cE=0;
+  parsedRows.forEach((row,i)=>{
+    const dup=!row.error&&isDup(row,ex);
+    const stat=row.error?'error':dup?'duplicate':'new';
+    const bc=row.error?'badge-err':dup?'badge-dup':'badge-new';
+    if(!row.error&&!dup)cN++;else if(!row.error)cD++;else cE++;
+    const dp=row.time?row.time.split('T')[0]:'',tp=row.time?row.time.split('T')[1]:'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="edit-cell" data-i="${i}" data-f="date" value="${dp}"></td><td><input class="edit-cell" data-i="${i}" data-f="time" value="${tp}"></td><td><input class="edit-cell" data-i="${i}" data-f="amountMcg" value="${row.amountMcg||''}"></td><td><input class="edit-cell" data-i="${i}" data-f="notes" value="${row.notes||''}"></td><td><span class="row-badge ${bc}">${stat}</span></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('cnt-total').textContent=parsedRows.length;
+  document.getElementById('cnt-new').textContent=cN;
+  document.getElementById('cnt-dup').textContent=cD;
+  document.getElementById('cnt-err').textContent=cE;
+  tbody.querySelectorAll('.edit-cell').forEach(inp=>{
+    inp.addEventListener('change',e=>{
+      const i=parseInt(e.target.dataset.i),f=e.target.dataset.f;
+      if(f==='date'||f==='time'){const d=tbody.querySelector(`[data-i="${i}"][data-f="date"]`).value,t=tbody.querySelector(`[data-i="${i}"][data-f="time"]`).value;parsedRows[i].time=d+'T'+t;}
+      else if(f==='amountMcg')parsedRows[i].amountMcg=parseInt(e.target.value)||0;
+      else parsedRows[i][f]=e.target.value;
+      renderParsedTable();
+    });
+  });
+}
+function mergeImport(){
+  const ex=loadData(),toAdd=parsedRows.filter(r=>!r.error&&!isDup(r,ex));
+  const merged=[...ex,...toAdd].sort((a,b)=>new Date(b.time)-new Date(a.time));
+  saveData(merged);
+  const mr=document.getElementById('mergeResult');
+  mr.style.display='block';mr.className='status-bar ok';
+  mr.innerHTML='merged '+toAdd.length+' new entr'+(toAdd.length!==1?'ies':'y')+'. <a href="#" onclick="exportData();return false;" style="color:var(--accent)">download updated json</a>';
+}
+function resetImport(){
+  parsedRows=[];
+  document.getElementById('previewImg').style.display='none';
+  document.getElementById('importStatus').style.display='none';
+  document.getElementById('results-section').style.display='none';
+  document.getElementById('mergeResult').style.display='none';
+  document.getElementById('fileInput').value='';
+  document.getElementById('parsedBody').innerHTML='';
+}
+
+// ─── support ──────────────────────────────────────────────────────────────────
+// PASTE YOUR STRIPE PAYMENT LINK HERE (Stripe Dashboard → Payment Links →
+// create a $2.99/month recurring price with "collect tax automatically" enabled).
+// It looks like: https://buy.stripe.com/xxxxxxxxxxxxxxxx
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/3cI3cx3Vy1Y59HG6tjeUU00';
+
+function initStripeButton(){
+  const btn = document.getElementById('stripeSubBtn');
+  if(!btn) return;
+  if(STRIPE_PAYMENT_LINK){
+    btn.href = STRIPE_PAYMENT_LINK;
+    btn.removeAttribute('data-placeholder');
+  } else {
+    btn.href = '#';
+    btn.setAttribute('data-placeholder','1');
+    btn.addEventListener('click', e=>{
+      if(btn.getAttribute('data-placeholder')==='1'){
+        e.preventDefault();
+        alert('Stripe subscription link not set yet.\n\nIn Stripe: create a Payment Link for a $2.99/month recurring price with automatic tax enabled, then paste the URL into the STRIPE_PAYMENT_LINK constant near the top of the support code in this file.');
+      }
+    });
+  }
+}
+
+function copyBTC(btn){navigator.clipboard.writeText('3BgLP6oMQZfTHEuFQnc1Rdjhv48TYLSSZ9').then(()=>{btn.textContent='copied ✓';setTimeout(()=>btn.textContent='copy address',2000);});}
+
+
+// ─── symptom score UI ─────────────────────────────────────────────────────────
+let cravScore = 5, effectScore = 5, sympOpen = false;
+
+function scoreColor(val, type) {
+  // cravings: 1=green(ok), 10=red(bad)
+  // effect: 1=red(too little), 5-6=green(ok), 10=red(too much)
+  if (type === 'crav') {
+    const r = Math.round((val - 1) / 9 * 200);
+    const g = Math.round((10 - val) / 9 * 160 + 60);
+    return `rgb(${r},${g},40)`;
+  } else {
+    // effect: center (5) is green, extremes are red
+    const dist = Math.abs(val - 5.5);
+    const r = Math.round(dist / 4.5 * 200 + 20);
+    const g = Math.round((4.5 - dist) / 4.5 * 160 + 40);
+    return `rgb(${r},${g},40)`;
+  }
+}
+
+function buildScoreBtns() {
+  ['crav','effect'].forEach(type => {
+    const el = document.getElementById(type+'Btns');
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 1; i <= 10; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'score-btn' + (i === (type==='crav'?cravScore:effectScore) ? ' active' : '');
+      btn.textContent = i;
+      const col = scoreColor(i, type);
+      if (i === (type==='crav'?cravScore:effectScore)) btn.style.background = col;
+      btn.onclick = () => {
+        if (type==='crav') { cravScore=i; document.getElementById('cravVal').textContent=i; }
+        else { effectScore=i; document.getElementById('effectVal').textContent=i; }
+        buildScoreBtns();
+      };
+      el.appendChild(btn);
+    }
+  });
+}
+
+function toggleSympPanel() {
+  sympOpen = !sympOpen;
+  document.getElementById('sympPanel').style.display = sympOpen ? 'block' : 'none';
+  document.getElementById('sympToggleBtn').textContent = sympOpen ? '− hide cravings / effect' : '+ add cravings / effect';
+  if (sympOpen) buildScoreBtns();
+}
+
+// ─── override logDose to include symptom scores ───────────────────────────────
+const _origLogDose = logDose;
+// redefine logDose
+function logDose() {
+  const t = document.getElementById('logTime').value;
+  const d = parseFloat(document.getElementById('logDose').value);
+  const n = document.getElementById('logNotes').value.trim();
+  if (!t || !d || d <= 0) { alert('Enter a valid time and dose.'); return; }
+  const data = loadData();
+  const entry = {
+    time: t, amountMcg: d, drug: 'bup', form: 'Sublingual film',
+    notes: n, symptoms: null,
+    cravings: sympOpen ? cravScore : null,
+    effect: sympOpen ? effectScore : null
+  };
+  data.push(entry);
+  saveData(data);
+  document.getElementById('logDose').value = '';
+  document.getElementById('logNotes').value = '';
+  // reset symptom panel
+  cravScore = 5; effectScore = 5;
+  if (sympOpen) { toggleSympPanel(); }
+  setLogTimeNow();
+  renderHistory();
+  renderPkChart();
+  try{ updateNowBlock(); renderAvgDoses(); }catch(e){}
+}
+
+// ─── override renderHistory to show cravings/effect dots ─────────────────────
+const _baseRenderHistory = renderHistory;
+function renderHistory() {
+  const data = getData();
+  const total = data.length;
+  const search = document.getElementById('histSearch').value.toLowerCase();
+  const days = parseInt(document.getElementById('histDays').value);
+  const cutoff = days > 0 ? new Date(Date.now() - days * 86400000) : new Date(0);
+  const filtered = data.filter(r => new Date(r.time) >= cutoff && (!search || (r.notes||'').toLowerCase().includes(search)));
+  const tbody = document.getElementById('histBody');
+  tbody.innerHTML = '';
+  try{ updateNowBlock(); }catch(e){}
+  if (!filtered.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="6" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No entries in this range.</td>';
+    tbody.appendChild(tr); document.getElementById('histCount').textContent = 'showing 0 of ' + total + ' total entries'; return;
+  }
+  filtered.forEach(r => {
+    const dt = new Date(r.time);
+    const cDot = r.cravings != null ? `<span title="cravings: ${r.cravings}/10" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${scoreColor(r.cravings,'crav')};vertical-align:middle"></span> ${r.cravings}` : '<span style="color:var(--text3)">—</span>';
+    const eDot = r.effect != null ? `<span title="effect: ${r.effect}/10" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${scoreColor(r.effect,'effect')};vertical-align:middle"></span> ${r.effect}` : '<span style="color:var(--text3)">—</span>';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="time-cell">${dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} ${dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</td><td class="dose-cell">${Math.round(r.amountMcg*10)/10} mcg</td><td style="font-size:11px;white-space:nowrap">${cDot}</td><td style="font-size:11px;white-space:nowrap">${eDot}</td><td style="color:var(--text2)">${r.notes||''}</td><td><button class="del-btn" onclick="deleteEntry('${r.time}',${r.amountMcg})">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+  const shownLabel = (days > 0 || search) ? ('showing ' + filtered.length + ' of ' + total + ' total entries') : (total + ' entries');
+  document.getElementById('histCount').textContent = shownLabel;
+}
+
+// ─── clinician / instance ID ──────────────────────────────────────────────────
+const INST_KEY = 'st_instanceId';
+const CLIN_SKIP_KEY = 'st_clinSkip';
+
+function genInstanceId() {
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('').toUpperCase().match(/.{4}/g).join('-');
+}
+
+function getInstanceId() {
+  let id = localStorage.getItem(INST_KEY);
+  if (!id) { id = genInstanceId(); localStorage.setItem(INST_KEY, id); }
+  return id;
+}
+
+function regenInstanceId() {
+  if (!confirm('Regenerate your Instance ID? Your clinician will need the new ID to continue accessing your records.')) return;
+  const id = genInstanceId();
+  localStorage.setItem(INST_KEY, id);
+  document.getElementById('instanceIdDisplay').textContent = id;
+}
+
+function copyInstanceId() {
+  const id = document.getElementById('instanceIdDisplay').textContent;
+  navigator.clipboard.writeText(id).then(() => {
+    const btn = event.target; btn.textContent = 'copied ✓';
+    setTimeout(() => btn.textContent = 'copy id', 2000);
+  });
+}
+
+function openClinician() {
+  const skip = localStorage.getItem(CLIN_SKIP_KEY) === '1';
+  if (skip) { enterClinician(); return; }
+  document.getElementById('clinicianModal').style.display = 'flex';
+}
+
+function closeClinModal() {
+  document.getElementById('clinicianModal').style.display = 'none';
+}
+
+function saveClinModalPref() {
+  const checked = document.getElementById('clinModalDontShow').checked;
+  localStorage.setItem(CLIN_SKIP_KEY, checked ? '1' : '0');
+}
+
+function enterClinician() {
+  closeClinModal();
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-clinician').classList.add('active');
+  document.getElementById('clinicianNavBtn').classList.add('active');
+  document.getElementById('instanceIdDisplay').textContent = getInstanceId();
+  renderAvgDoses();
+}
+
+function lookupPatient() {
+  const id = document.getElementById('patientIdInput').value.trim().toUpperCase();
+  const result = document.getElementById('patientResult');
+  if (!id) { result.textContent = 'Enter an Instance ID.'; return; }
+  // In a local-only app, patient lookup is not possible without data sharing infrastructure.
+  // This placeholder explains the current limitation clearly.
+  result.innerHTML = `<div style="padding:10px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);line-height:1.7">
+    <div style="font-weight:700;color:var(--text);margin-bottom:4px">Instance ID: ${id}</div>
+    <div style="color:var(--text3);font-size:11px">Patient lookup requires the patient to share their exported JSON directly. Ask the patient to use <strong style="color:var(--text2)">export json</strong> from their History tab and send you the file. You can then view their records by importing the file here.</div>
+    <div style="margin-top:8px"><input type="file" accept=".json" onchange="loadPatientFile(event)" style="font-size:11px;color:var(--text2)"></div>
+  </div>`;
+}
+
+function loadPatientFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error('invalid format');
+      const result = document.getElementById('patientResult');
+      const total = data.length;
+      const latest = data.sort((a,b)=>new Date(b.time)-new Date(a.time))[0];
+      const earliest = data[data.length-1];
+      result.innerHTML += `<div style="margin-top:10px;padding:10px;background:var(--accentbg);border-radius:var(--radius);border:1px solid var(--border);font-size:11px;line-height:1.8">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:4px">File loaded — ${total} entries</div>
+        <div>First entry: ${earliest.time} &nbsp;·&nbsp; ${earliest.amountMcg} mcg</div>
+        <div>Latest entry: ${latest.time} &nbsp;·&nbsp; ${latest.amountMcg} mcg</div>
+        <div style="margin-top:8px;color:var(--text3)">Review this data in a separate session by importing it into a new browser tab running The Smack Tracker.</div>
+      </div>`;
+    } catch(err) { document.getElementById('patientResult').innerHTML += '<div style="color:var(--red);font-size:11px;margin-top:6px">Could not read file: ' + err.message + '</div>'; }
+  };
+  reader.readAsText(file);
+}
+
+// ─── cutting guide ────────────────────────────────────────────────────────────
+// Official Suboxone sublingual film dimensions (FDA/manufacturer specifications)
+// Source: Suboxone USPI Table 1, Reckitt Benckiser
+// Note: 2mg and 8mg are physically identical (22×12.8mm); dose differs by concentration only.
+// The 4mg film is compositionally identical to 2mg but twice the length.
+// The 12mg film is compositionally identical to 8mg but 1.5× the length.
+
+// Official Suboxone sublingual film dimensions (FDA/manufacturer specifications)
+// Grid cols×rows chosen to produce cells as close to square as possible.
+// 2mg and 8mg are physically identical (22×12.8mm); dose differs by concentration only.
+const FILMS = {
+  '2mg': {
+    label: '2mg / 0.5mg (buprenorphine/naloxone)',
+    w: 22.0, h: 12.8, totalMcg: 2000,
+    note: 'Same physical size as the 8mg film. Verify your strip by reading the imprint (N2) before cutting.',
+    divisions: [
+      { n: 8,  cols: 4, rows: 2, desc: '250 mcg per piece' },
+      { n: 10, cols: 5, rows: 2, desc: '200 mcg per piece' },
+      { n: 16, cols: 4, rows: 4, desc: '125 mcg per piece' },
+      { n: 20, cols: 5, rows: 4, desc: '100 mcg per piece' },
+      { n: 32, cols: 8, rows: 4, desc: '62.5 mcg per piece' },
+      { n: 40, cols: 8, rows: 5, desc: '50 mcg per piece' },
+    ]
+  },
+  '4mg': {
+    label: '4mg / 1mg (buprenorphine/naloxone)',
+    w: 22.0, h: 25.6, totalMcg: 4000,
+    note: 'Double the length of the 2mg film, same concentration per mm². Imprint: N4.',
+    divisions: [
+      { n: 8,  cols: 2, rows: 4,  desc: '500 mcg per piece' },
+      { n: 10, cols: 2, rows: 5,  desc: '400 mcg per piece' },
+      { n: 16, cols: 4, rows: 4,  desc: '250 mcg per piece' },
+      { n: 20, cols: 4, rows: 5,  desc: '200 mcg per piece' },
+      { n: 32, cols: 4, rows: 8,  desc: '125 mcg per piece' },
+      { n: 40, cols: 5, rows: 8,  desc: '100 mcg per piece' },
+    ]
+  },
+  '8mg': {
+    label: '8mg / 2mg (buprenorphine/naloxone)',
+    w: 22.0, h: 12.8, totalMcg: 8000,
+    note: 'Same physical size as the 2mg film — 3.2× higher concentration per mm². Imprint: N8. Do not confuse with the 2mg.',
+    divisions: [
+      { n: 8,  cols: 4, rows: 2, desc: '1,000 mcg (1mg) per piece' },
+      { n: 10, cols: 5, rows: 2, desc: '800 mcg per piece' },
+      { n: 16, cols: 4, rows: 4, desc: '500 mcg per piece' },
+      { n: 20, cols: 5, rows: 4, desc: '400 mcg per piece' },
+      { n: 32, cols: 8, rows: 4, desc: '250 mcg per piece' },
+      { n: 40, cols: 8, rows: 5, desc: '200 mcg per piece' },
+    ]
+  },
+  '12mg': {
+    label: '12mg / 3mg (buprenorphine/naloxone)',
+    w: 22.0, h: 19.2, totalMcg: 12000,
+    note: '1.5× the length of the 8mg film, same concentration per mm². Imprint: N12.',
+    divisions: [
+      { n: 8,  cols: 4, rows: 2, desc: '1,500 mcg (1.5mg) per piece' },
+      { n: 10, cols: 5, rows: 2, desc: '1,200 mcg (1.2mg) per piece' },
+      { n: 16, cols: 4, rows: 4, desc: '750 mcg per piece' },
+      { n: 20, cols: 5, rows: 4, desc: '600 mcg per piece' },
+      { n: 32, cols: 8, rows: 4, desc: '375 mcg per piece' },
+      { n: 40, cols: 8, rows: 5, desc: '300 mcg per piece' },
+    ]
+  }
+};
+
+let activeFilm = '2mg';
+
+function selectFilm(key, btn) {
+  activeFilm = key;
+  document.querySelectorAll('#filmSelector .range-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCutGuide();
+}
+
+// Build an SVG film diagram at true mm dimensions.
+// SVG uses mm units natively — browsers honour this at 100% print scale.
+// Each division is shown as a 2D grid (cols × rows) chosen for near-square cells.
+// Films are laid out in a vertical column, one per division, with labels to the right.
+function buildFilmSVG(filmKey) {
+  const film = FILMS[filmKey];
+  const { w, h, totalMcg, divisions } = film;
+
+  const labelW  = 56;   // mm for right-side text
+  const rowGap  = 5;    // mm between successive film diagrams
+  const topPad  = 7;    // mm before first film
+  const leftPad = 8;    // mm left of film (for height annotation)
+
+  const totalDivs = divisions.length;
+  const svgH = topPad + totalDivs * h + (totalDivs - 1) * rowGap + 6;
+  const svgW = leftPad + w + 4 + labelW;
+
+  // colours — work in both light and dark mode since SVG is embedded
+  const filmFill  = '#f0a04a';      // warm orange, legible in both modes
+  const lineCol   = '#5a2800';      // dark brown grid lines
+  const textMain  = darkMode ? '#d8d8c8' : '#1a1a14';
+  const textDim   = darkMode ? '#7a7a70' : '#7a7a68';
+  const bgFill    = darkMode ? '#141414' : '#faf9f4';
+
+  let svg = '';
+
+  // ── top dimension callout (width) ──
+  const annY = topPad - 2;
+  const tk = 1.0; // tick half-height
+  svg += `<line x1="${leftPad}" y1="${annY}" x2="${leftPad+w}" y2="${annY}" stroke="${textDim}" stroke-width="0.2"/>`;
+  svg += `<line x1="${leftPad}"   y1="${annY-tk}" x2="${leftPad}"   y2="${annY+tk}" stroke="${textDim}" stroke-width="0.2"/>`;
+  svg += `<line x1="${leftPad+w}" y1="${annY-tk}" x2="${leftPad+w}" y2="${annY+tk}" stroke="${textDim}" stroke-width="0.2"/>`;
+  svg += `<text x="${leftPad+w/2}" y="${annY-0.6}" text-anchor="middle" font-family="Courier New,monospace" font-size="2.5" fill="${textDim}">${w} mm</text>`;
+
+  divisions.forEach((div, i) => {
+    const { cols, rows, n, desc } = div;
+    const cellW = w / cols;
+    const cellH = h / rows;
+    const fx = leftPad;
+    const fy = topPad + i * (h + rowGap);
+
+    // ── left height annotation (first diagram only) ──
+    if (i === 0) {
+      svg += `<line x1="${fx-1.5}" y1="${fy}" x2="${fx-1.5}" y2="${fy+h}" stroke="${textDim}" stroke-width="0.2"/>`;
+      svg += `<line x1="${fx-2.5}" y1="${fy}"   x2="${fx-0.5}" y2="${fy}"   stroke="${textDim}" stroke-width="0.2"/>`;
+      svg += `<line x1="${fx-2.5}" y1="${fy+h}" x2="${fx-0.5}" y2="${fy+h}" stroke="${textDim}" stroke-width="0.2"/>`;
+      svg += `<text x="${fx-1.5}" y="${fy+h/2}" text-anchor="middle" dominant-baseline="middle" font-family="Courier New,monospace" font-size="2.3" fill="${textDim}" transform="rotate(-90,${fx-1.5},${fy+h/2})">${h} mm</text>`;
+    }
+
+    // ── film background ──
+    svg += `<rect x="${fx}" y="${fy}" width="${w}" height="${h}" fill="${filmFill}" stroke="${lineCol}" stroke-width="0.35" rx="0.4"/>`;
+
+    // ── vertical cut lines (cols-1) ──
+    for (let c = 1; c < cols; c++) {
+      const lx = fx + c * cellW;
+      svg += `<line x1="${lx}" y1="${fy}" x2="${lx}" y2="${fy+h}" stroke="${lineCol}" stroke-width="0.25"/>`;
+    }
+
+    // ── horizontal cut lines (rows-1) ──
+    for (let r = 1; r < rows; r++) {
+      const ly = fy + r * cellH;
+      svg += `<line x1="${fx}" y1="${ly}" x2="${fx+w}" y2="${ly}" stroke="${lineCol}" stroke-width="0.25"/>`;
+    }
+
+    // ── right-side label ──
+    const lx = fx + w + 4;
+    const ly = fy + h / 2;
+    const gridStr = `${cols}×${rows}`;
+    const cellStr = `${cellW.toFixed(2)}×${cellH.toFixed(2)} mm`;
+    svg += `<text x="${lx}" y="${ly - 2.2}" font-family="Courier New,monospace" font-size="3.4" font-weight="700" fill="${textMain}">÷${n} &nbsp; ${desc}</text>`;
+    svg += `<text x="${lx}" y="${ly + 1.4}" font-family="Courier New,monospace" font-size="2.5" fill="${textDim}">grid ${gridStr} &nbsp;·&nbsp; cell ${cellStr}</text>`;
+  });
+
+  const PX = 3.7795; // mm → px at 96 dpi (screen display size)
+  return `<svg xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 ${svgW} ${svgH}"
+    width="${svgW * PX}px" height="${svgH * PX}px"
+    style="display:block;max-width:100%;overflow:visible">
+    <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="${bgFill}"/>
+    ${svg}
+  </svg>`;
+}
+
+function renderCutGuide() {
+  const film = FILMS[activeFilm];
+  document.getElementById('filmInfoLine').innerHTML =
+    `<span style="color:var(--text)">${film.label}</span>`
+    + ` &nbsp;·&nbsp; ${film.w} × ${film.h} mm &nbsp;·&nbsp; ${film.totalMcg.toLocaleString()} mcg total`
+    + `<div style="margin-top:4px;font-size:11px;color:var(--amber)">${film.note}</div>`;
+  document.getElementById('cutPrintArea').innerHTML = buildFilmSVG(activeFilm);
+}
+
+function printCutGuide() {
+  const film = FILMS[activeFilm];
+  const svgHtml = buildFilmSVG(activeFilm);
+  const el = document.getElementById('printOnly');
+
+  el.innerHTML =
+    '<h2>Smack Tracker — Film Cut Guide</h2>'
+  + '<p>' + film.label + ' · ' + film.w + '×' + film.h + ' mm · ' + film.totalMcg.toLocaleString() + ' mcg total</p>'
+  + '<p class="pw">' + film.note + '</p>'
+  + '<p>Print at 100% scale — no fit-to-page, no scaling. Verify 22mm width with a ruler before cutting.</p>'
+  + svgHtml;
+
+  // Let the DOM update, then print
+  setTimeout(function() {
+    window.print();
+    setTimeout(function() { el.innerHTML = ''; }, 1000);
+  }, 50);
+}
+
+// ─── init ─────────────────────────────────────────────────────────────────────
+// Check if this is a fresh install with no data
+(function(){
+  try{const d=localStorage.getItem(STORE_KEY);if(!d||!JSON.parse(d).length){
+    const b=document.getElementById('histBody');
+    if(b){const tr=document.createElement('tr');
+      tr.innerHTML='<td colspan="5" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No history yet. Use <strong style=\"color:var(--text2)\">import json</strong> to load a backup, or log your first dose above.</td>';
+      b.appendChild(tr);}
+  }}catch(e){}
+})();
+buildRangeBar();
+updatePkFooter();
+buildLangMenu();
+applyLang();
+initStripeButton();
+syncIntervalUI();
+setSimUnit('mcg');
+renderHistory();
+renderAvgDoses();
+try{ updateNowBlock(); }catch(e){}
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  renderPkChart();
+  setTimeout(redrawSim,50);
+}));
+</script>
+</body>
+</html>
